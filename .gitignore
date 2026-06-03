@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.runtimeconfig.json
+# NEVER commit service-account / admin keys:
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# Capacitor native projects are generated locally (npx cap add); regenerate per machine.
+# If your team prefers to commit them, delete the next two lines.
+ios/
+android/
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OneDrive / Office lock sentinels
+~$*

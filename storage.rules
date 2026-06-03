@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function img() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    function isUser(uid) { return request.auth != null && request.auth.uid == uid; }
+
+    match /tribes/{file=**}        { allow read: if true; allow write: if request.auth != null && img(); }
+    match /avatars/{uid}/{f=**}    { allow read: if true; allow write: if isUser(uid) && img(); }
+    match /posts/{uid}/{f=**}      { allow read: if true; allow write: if isUser(uid) && img(); }
+    match /activities/{uid}/{f=**} { allow read: if true; allow write: if isUser(uid) && img(); }
+    match /listings/{uid}/{f=**}   { allow read: if true; allow write: if isUser(uid) && img(); }
+  }
+}
