@@ -1,0 +1,13 @@
+# CODEOWNERS for ROAMR
+#
+# Code owners are automatically requested for review when someone opens a
+# pull request that changes owned files. Combined with branch protection on
+# main, this ensures every change gets a review.
+#
+# The default owner below owns everything in the repository.
+# When your co-founder / partner joins GitHub, add their username on the same
+# line for shared review, e.g.:
+#
+#   *  @andalosantangelo-hue  @partner-username
+
+* @andalosantangelo-hue
