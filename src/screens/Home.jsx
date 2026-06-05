@@ -5,6 +5,18 @@ import { usePosts } from "../store/PostsContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import Discover from "../components/Discover.jsx";
 
+function Tab({ id, label, activeTab, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(id)}
+      className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${
+        activeTab === id ? "bg-brand-green text-white" : "text-brand-navy"
+      }`}>
+      {label}
+    </button>
+  );
+}
+
 export default function Home() {
   const { posts, loading } = usePosts();
   const { user, followingIds } = useAuth();
@@ -16,19 +28,11 @@ export default function Home() {
     : posts;
   const showDiscover = !following && followingIds.size < 5;
 
-  const Tab = ({ id, label }) => (
-    <button onClick={() => setTab(id)}
-      className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${
-        tab === id ? "bg-brand-green text-white" : "text-brand-navy"}`}>
-      {label}
-    </button>
-  );
-
   return (
     <div className="px-4 pt-2 pb-6 space-y-4">
       <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
-        <Tab id="foryou" label="For You" />
-        <Tab id="following" label="Following" />
+        <Tab id="foryou" label="For You" activeTab={tab} onSelect={setTab} />
+        <Tab id="following" label="Following" activeTab={tab} onSelect={setTab} />
       </div>
 
       {showDiscover && <Discover />}
