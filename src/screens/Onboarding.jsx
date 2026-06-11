@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import { Hiking, Water, Bike, Nature, Snow, Check } from "../components/Icons.jsx";
@@ -15,22 +15,56 @@ const ACTIVITIES = [
 
 export default function Onboarding() {
   const nav = useNavigate();
-  const { saveInterests } = useAuth();
+  const { user, profile, saveInterests, saveProfile } = useAuth();
+  const [name, setName] = useState(profile?.displayName || user?.displayName || "");
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+
+  // Pre-fill the name once auth/profile resolves (e.g. Google/Apple sign-ups),
+  // without clobbering anything the user has already typed.
+  useEffect(() => {
+    const existing = profile?.displayName || user?.displayName;
+    if (existing) setName((n) => (n ? n : existing));
+  }, [profile, user]);
 
   const toggle = (id) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  const canContinue = selected.length > 0;
+  const canContinue = name.trim().length >= 2 && selected.length > 0;
+
+  const finish = async () => {
+    setBusy(true);
+    try {
+      await saveProfile({ displayName: name.trim() });
+      await saveInterests(selected);
+    } catch (e) { /* non-blocking */ }
+    track("onboarding_complete", { count: selected.length });
+    nav("/app/home");
+  };
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-brand-tint to-white">
       <StatusBar />
       <div className="flex-1 flex flex-col px-6 overflow-y-auto no-scrollbar">
-        <h1 className="text-[26px] font-extrabold text-brand-navy mt-6 mb-6">
-          Start with activities you like
+        <h1 className="text-[26px] font-extrabold text-brand-navy mt-6 mb-1">
+          Welcome to ROAMR
         </h1>
+        <p className="text-ink/70 text-[15px] mb-5">Let&apos;s set up your profile.</p>
+
+        <label htmlFor="displayName" className="block text-[13px] font-semibold text-ink/70 mb-1 ml-1">Your name</label>
+        <input
+          id="displayName"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={40}
+          autoComplete="name"
+          placeholder="What should we call you?"
+          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted mb-6"
+        />
+
+        <h2 className="text-[18px] font-extrabold text-brand-navy mb-3">
+          Activities you like
+        </h2>
 
         <div className="space-y-3">
           {ACTIVITIES.map(({ id, label, Icon }) => {
@@ -59,7 +93,7 @@ export default function Onboarding() {
         <div className="mt-auto pt-8 pb-7">
           <button
             disabled={!canContinue || busy}
-            onClick={async () => { setBusy(true); try { await saveInterests(selected); } catch (e) {} track("onboarding_complete", { count: selected.length }); nav("/app/home"); }}
+            onClick={finish}
             className={`w-full rounded-xl py-4 font-semibold transition ${
               canContinue
                 ? "bg-brand-green hover:bg-brand-greenDark text-white"
