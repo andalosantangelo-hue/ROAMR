@@ -1,5 +1,5 @@
-// ROAMR Cloud Functions (BACKEND-PLAN §9.B + counter integrity).
-// Server-authoritative counters (tamper-proof) + push notifications.
+// ROAMR Cloud Functions (BACKEND-PLAN §9.B + counter integrity + abuse rate limiting).
+// Server-authoritative counters (tamper-proof) + push notifications + per-user rate limits.
 // Deploy: `firebase deploy --only functions` (Blaze plan).
 const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
@@ -11,6 +11,59 @@ const db = getFirestore();
 
 const bump = (path, field, n) =>
   db.doc(path).update({ [field]: FieldValue.increment(n) }).catch(() => {});
+
+/* ------------------------------------------------------------------ *
+ * Abuse rate limiting (server-authoritative, FAIL-OPEN).
+ * A logged-in client can call the SDK directly, so per-user spam limits
+ * must live server-side. Each rate-limited create increments a fixed-window
+ * counter in rateLimits/{uid}; over-limit docs are deleted. Any error leaves
+ * the write intact so legitimate users are NEVER blocked by this layer.
+ * Thresholds are deliberately generous — they stop scripted spam, not humans.
+ * ------------------------------------------------------------------ */
+const RL = {
+  post:     { max: 40,  windowSec: 3600 },   // 40 posts / hour
+  activity: { max: 40,  windowSec: 3600 },   // 40 activities / hour
+  listing:  { max: 25,  windowSec: 3600 },   // 25 listings / hour
+  tribe:    { max: 15,  windowSec: 3600 },   // 15 tribes / hour
+  comment:  { max: 80,  windowSec: 3600 },   // 80 comments / hour
+  report:   { max: 25,  windowSec: 86400 },  // 25 reports / day
+  follow:   { max: 250, windowSec: 3600 },   // 250 follows / hour
+};
+
+// Returns true if the action is within the user's limit (fail-open on error).
+async function allow(uid, action) {
+  if (!uid) return true;
+  const cfg = RL[action];
+  if (!cfg) return true;
+  const ref = db.doc(`rateLimits/${uid}`);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      const winStart = now - cfg.windowSec * 1000;
+      const data = snap.exists ? snap.data() : {};
+      const entry = data[action] || { count: 0, start: now };
+      let count = entry.count;
+      let start = entry.start;
+      if (!start || start < winStart) { count = 0; start = now; } // window rolled over
+      count += 1;
+      tx.set(ref, { [action]: { count, start, updatedAt: now } }, { merge: true });
+      return count <= cfg.max;
+    });
+  } catch {
+    return true; // fail open — never block legitimate writes on infra hiccups
+  }
+}
+
+// Record an abuse trip for monitoring (server-only collection; best-effort).
+async function flag(uid, action, ref) {
+  try {
+    await db.collection("abuseFlags").add({
+      uid: uid || null, action, path: ref ? ref.path : null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch { /* best effort */ }
+}
 
 async function notify(recipientUid, actorUid, prefKey, title, body, data = {}) {
   if (!recipientUid || recipientUid === actorUid) return;
@@ -37,6 +90,33 @@ async function record(recipientUid, actorUid, type, text, link) {
   });
 }
 
+/* ---- Content creation: rate-limit only (no paired counter to fix) ---- */
+exports.onPostCreate = onDocumentCreated("posts/{postId}", async (e) => {
+  const d = e.data && e.data.data();
+  if (!d) return;
+  if (!(await allow(d.authorId, "post"))) { await e.data.ref.delete().catch(() => {}); await flag(d.authorId, "post", e.data.ref); }
+});
+exports.onActivityCreate = onDocumentCreated("activities/{id}", async (e) => {
+  const d = e.data && e.data.data();
+  if (!d) return;
+  if (!(await allow(d.authorId, "activity"))) { await e.data.ref.delete().catch(() => {}); await flag(d.authorId, "activity", e.data.ref); }
+});
+exports.onListingCreate = onDocumentCreated("listings/{id}", async (e) => {
+  const d = e.data && e.data.data();
+  if (!d) return;
+  if (!(await allow(d.sellerId, "listing"))) { await e.data.ref.delete().catch(() => {}); await flag(d.sellerId, "listing", e.data.ref); }
+});
+exports.onTribeCreate = onDocumentCreated("tribes/{id}", async (e) => {
+  const d = e.data && e.data.data();
+  if (!d) return;
+  if (!(await allow(d.ownerId, "tribe"))) { await e.data.ref.delete().catch(() => {}); await flag(d.ownerId, "tribe", e.data.ref); }
+});
+exports.onReportCreate = onDocumentCreated("reports/{id}", async (e) => {
+  const d = e.data && e.data.data();
+  if (!d) return;
+  if (!(await allow(d.reporterId, "report"))) { await e.data.ref.delete().catch(() => {}); await flag(d.reporterId, "report", e.data.ref); }
+});
+
 /* ---- Posts: likes ---- */
 exports.onPostLikeCreate = onDocumentCreated("posts/{postId}/likes/{uid}", async (e) => {
   const { postId, uid } = e.params;
@@ -50,8 +130,11 @@ exports.onPostLikeDelete = onDocumentDeleted("posts/{postId}/likes/{uid}", async
 /* ---- Posts: comments ---- */
 exports.onPostCommentCreate = onDocumentCreated("posts/{postId}/comments/{cid}", async (e) => {
   const { postId } = e.params;
-  await bump(`posts/${postId}`, "commentCount", 1);
   const c = e.data && e.data.data();
+  // Keep counter logic identical, then reverse via delete if over limit.
+  const ok = c ? await allow(c.authorId, "comment") : true;
+  await bump(`posts/${postId}`, "commentCount", 1);
+  if (!ok) { await e.data.ref.delete().catch(() => {}); await flag(c.authorId, "comment", e.data.ref); return; } // onPostCommentDelete reverses the +1
   const post = (await db.doc(`posts/${postId}`).get()).data();
   if (post && c) { await notify(post.authorId, c.authorId, "comments", "New comment", `${c.authorName || "Someone"} commented on your post`, { type: "post", id: postId }); await record(post.authorId, c.authorId, "comment", `${c.authorName || "Someone"} commented on your post`, `/comments/posts/${postId}`); }
 });
@@ -66,8 +149,10 @@ exports.onActLikeDelete = onDocumentDeleted("activities/{id}/likes/{uid}", async
 
 exports.onActCommentCreate = onDocumentCreated("activities/{id}/comments/{cid}", async (e) => {
   const { id } = e.params;
-  await bump(`activities/${id}`, "commentCount", 1);
   const c = e.data && e.data.data();
+  const ok = c ? await allow(c.authorId, "comment") : true;
+  await bump(`activities/${id}`, "commentCount", 1);
+  if (!ok) { await e.data.ref.delete().catch(() => {}); await flag(c.authorId, "comment", e.data.ref); return; } // onActCommentDelete reverses the +1
   const act = (await db.doc(`activities/${id}`).get()).data();
   if (act && c) { await notify(act.authorId, c.authorId, "comments", "New comment", `${c.authorName || "Someone"} commented on your activity`, { type: "activity", id }); await record(act.authorId, c.authorId, "comment", `${c.authorName || "Someone"} commented on your activity`, `/comments/activities/${id}`); }
 });
@@ -114,8 +199,10 @@ exports.onTribeJoinDelete = onDocumentDeleted("tribes/{id}/members/{uid}", async
 /* ---- Follows ---- */
 exports.onFollowCreate = onDocumentCreated("users/{uid}/following/{targetUid}", async (e) => {
   const { uid, targetUid } = e.params;
+  const ok = await allow(uid, "follow");
   await bump(`users/${uid}`, "followingCount", 1);
   await bump(`users/${targetUid}`, "followerCount", 1);
+  if (!ok) { await e.data.ref.delete().catch(() => {}); await flag(uid, "follow", e.data.ref); return; } // onFollowDelete reverses both bumps
   await notify(targetUid, uid, "newFollower", "New follower", "Someone started following you", { type: "user", id: uid });
   await record(targetUid, uid, "follow", "Someone started following you", `/u/${uid}`);
 });

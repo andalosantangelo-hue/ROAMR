@@ -127,5 +127,9 @@ service cloud.firestore {
         && keysOnly(['reporterId','targetType','targetId','targetOwnerId','reason','note','status','createdAt']);
       allow read, update, delete: if false; // triage in console only
     }
+
+    // Server-only (Admin SDK / Cloud Functions). Clients can neither read nor write.
+    match /rateLimits/{uid} { allow read, write: if false; }
+    match /abuseFlags/{id}  { allow read, write: if false; }
   }
 }

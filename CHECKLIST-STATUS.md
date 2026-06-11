@@ -14,6 +14,11 @@ not code. ✅ done · ⚠️ partial · ❌ todo.
 - ✅ CI: dependency audit + gitleaks secret scan added.
 - ✅ Emojis removed from app/notification copy.
 - ✅ SECURITY.md, RUNBOOKS.md, .env.example added.
+- ✅ **Rate limiting / brute-force + spam protection** — server-authoritative, fail-open per-user
+  limits in Cloud Functions (posts 40/h, activities 40/h, listings 25/h, tribes 15/h, comments 80/h,
+  reports 25/day, follows 250/h). Over-limit docs are removed; counters stay consistent; trips are
+  logged to a server-only `abuseFlags` collection. Cannot lock out legitimate users (fails open).
+  App Check remains the complementary platform-level limiter (enforcement = your console step).
 (Already passing before this pass: auth + route/rules authz, owner-only writes, server-only
 counters, IDOR/XSS protection, account deletion, report/block, offline, tests + rules tests + CI,
 indexes, image compression, error boundary, skeletons.)
