@@ -12,7 +12,7 @@ export default {
           tint: "#E8F0DD",
         },
         ink: "#1B2A33",
-        muted: "#7E8C97",
+        muted: "#626E79",
       },
       fontFamily: {
         sans: ["Poppins", "ui-sans-serif", "system-ui", "sans-serif"],
