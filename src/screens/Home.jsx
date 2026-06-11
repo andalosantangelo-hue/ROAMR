@@ -5,13 +5,11 @@ import { usePosts } from "../store/PostsContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import Discover from "../components/Discover.jsx";
 
-function Tab({ id, label, activeTab, onSelect }) {
+function FeedTab({ id, label, active, onSelect }) {
   return (
-    <button
-      onClick={() => onSelect(id)}
+    <button onClick={() => onSelect(id)}
       className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${
-        activeTab === id ? "bg-brand-green text-white" : "text-brand-navy"
-      }`}>
+        active === id ? "bg-brand-green text-white" : "text-brand-navy"}`}>
       {label}
     </button>
   );
@@ -31,8 +29,8 @@ export default function Home() {
   return (
     <div className="px-4 pt-2 pb-6 space-y-4">
       <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
-        <Tab id="foryou" label="For You" activeTab={tab} onSelect={setTab} />
-        <Tab id="following" label="Following" activeTab={tab} onSelect={setTab} />
+        <FeedTab id="foryou" label="For You" active={tab} onSelect={setTab} />
+        <FeedTab id="following" label="Following" active={tab} onSelect={setTab} />
       </div>
 
       {showDiscover && <Discover />}

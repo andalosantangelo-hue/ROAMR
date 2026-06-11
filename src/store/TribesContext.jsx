@@ -45,7 +45,7 @@ export function TribesProvider({ children }) {
     );
   }, [user]);
 
-  const tribes = remote.length ? remote : seed;
+  const tribes = remote.length ? remote : (import.meta.env.DEV ? seed : []);
 
   const addTribe = async ({ name, file, category = null }) => {
     let img = null;

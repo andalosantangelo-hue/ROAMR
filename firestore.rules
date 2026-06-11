@@ -2,81 +2,129 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
-    function isUser(uid) { return signedIn() && request.auth.uid == uid; }
-    function creating(field) { return request.resource.data[field] == request.auth.uid; }
-    function owns(field) { return signedIn() && resource.data[field] == request.auth.uid; }
+    function signedIn()        { return request.auth != null; }
+    function isUser(uid)       { return signedIn() && request.auth.uid == uid; }
+    function created(field)    { return request.resource.data[field] == request.auth.uid; }
+    function owns(field)       { return signedIn() && resource.data[field] == request.auth.uid; }
+    function keysOnly(allowed) { return request.resource.data.keys().hasOnly(allowed); }
+    function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
+    function strMax(f, n)      { return request.resource.data[f] is string && request.resource.data[f].size() <= n; }
 
-    // Current user's own presence docs across all parents (collection-group reads)
+    // Collection-group reads of the current user's own presence docs
     match /{path=**}/members/{uid}   { allow read: if signedIn(); }
     match /{path=**}/likes/{uid}     { allow read: if signedIn(); }
     match /{path=**}/attendees/{uid} { allow read: if signedIn(); }
 
     match /users/{uid} {
       allow read: if signedIn();
-      allow create: if isUser(uid);
-      // owner-only; counters/subscription are server-maintained, block client tampering
+      allow create: if isUser(uid)
+        && keysOnly(['uid','displayName','photoURL','updatedAt',
+                     'interests','bio','subscription','followingCount','followerCount','createdAt']);
+      // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['followerCount', 'followingCount', 'subscription', 'createdAt']);
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subscription','followerCount','followingCount','createdAt','updatedAt'])
+        && unchanged(['uid','followerCount','followingCount','subscription','createdAt']);
       allow delete: if isUser(uid);
 
-      match /saves/{postId}      { allow read, write: if isUser(uid); }
-      match /following/{targetUid} { allow read: if signedIn(); allow write: if isUser(uid); }
-      match /blocked/{targetUid} { allow read, write: if isUser(uid); }
-      match /followers/{fid}     { allow read: if signedIn(); allow write: if false; }
-      match /notifications/{nid} { allow read: if isUser(uid); allow update: if isUser(uid); allow create, delete: if false; }
+      // Private profile data (email, phone, push tokens, prefs) — owner only.
+      match /private/{doc} {
+        allow read, write: if isUser(uid);
+      }
+
+      match /saves/{postId} {
+        allow read: if isUser(uid);
+        allow create: if isUser(uid) && keysOnly(['postId','collection','createdAt']);
+        allow delete: if isUser(uid);
+      }
+      match /following/{targetUid} {
+        allow read: if signedIn();
+        allow create: if isUser(uid) && keysOnly(['targetUid','createdAt']);
+        allow delete: if isUser(uid);
+      }
+      match /blocked/{targetUid} {
+        allow read, delete: if isUser(uid);
+        allow create: if isUser(uid) && keysOnly(['targetUid','createdAt']);
+      }
+      match /notifications/{nid} {
+        allow read: if isUser(uid);
+        allow update: if isUser(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create, delete: if false; // server-only
+      }
+      match /followers/{fid} { allow read: if signedIn(); allow write: if false; }
     }
 
     match /posts/{postId} {
       allow read: if signedIn();
-      allow create: if signedIn() && creating('authorId')
-        && request.resource.data.likeCount == 0
-        && request.resource.data.commentCount == 0;
-      allow update, delete: if owns('authorId'); // counts updated by Cloud Functions (admin bypasses rules)
+      allow create: if signedIn() && created('authorId')
+        && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
+        && keysOnly(['authorId','authorName','authorPhotoURL','title','location','photo','rating','likeCount','commentCount','createdAt'])
+        && strMax('title', 300);
+      allow update: if owns('authorId') && unchanged(['authorId','likeCount','commentCount','createdAt']);
+      allow delete: if owns('authorId');
       match /likes/{uid} {
         allow read: if signedIn();
-        allow create, delete: if isUser(uid);
+        allow create: if isUser(uid) && keysOnly(['uid','createdAt']);
+        allow delete: if isUser(uid);
       }
       match /comments/{cid} {
         allow read: if signedIn();
-        allow create: if signedIn() && creating('authorId');
+        allow create: if signedIn() && created('authorId')
+          && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt']) && strMax('text', 2000);
         allow update, delete: if owns('authorId');
       }
     }
 
     match /activities/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && creating('authorId')
-        && request.resource.data.attendeeCount == 0
-        && request.resource.data.likeCount == 0
-        && request.resource.data.commentCount == 0;
-      allow update, delete: if owns('authorId');
-      match /attendees/{uid} { allow read: if signedIn(); allow create, delete: if isUser(uid); }
-      match /likes/{uid}     { allow read: if signedIn(); allow create, delete: if isUser(uid); }
+      allow create: if signedIn() && created('authorId')
+        && request.resource.data.attendeeCount == 0 && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
+        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
+        && strMax('text', 2000);
+      allow update: if owns('authorId') && unchanged(['authorId','attendeeCount','recentAttendees','likeCount','commentCount','createdAt']);
+      allow delete: if owns('authorId');
+      match /attendees/{uid} {
+        allow read: if signedIn();
+        allow create: if isUser(uid) && keysOnly(['uid','displayName','photoURL','createdAt']);
+        allow delete: if isUser(uid);
+      }
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create: if isUser(uid) && keysOnly(['uid','createdAt']);
+        allow delete: if isUser(uid);
+      }
       match /comments/{cid} {
         allow read: if signedIn();
-        allow create: if signedIn() && creating('authorId');
+        allow create: if signedIn() && created('authorId')
+          && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt']) && strMax('text', 2000);
         allow update, delete: if owns('authorId');
       }
     }
 
     match /tribes/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && creating('ownerId')
-        && request.resource.data.memberCount == 0;
-      allow update, delete: if owns('ownerId');
-      match /members/{uid} { allow read: if signedIn(); allow create, delete: if isUser(uid); }
+      allow create: if signedIn() && created('ownerId') && request.resource.data.memberCount == 0
+        && keysOnly(['name','img','category','memberCount','ownerId','createdAt']) && strMax('name', 120);
+      allow update: if owns('ownerId') && unchanged(['ownerId','memberCount','createdAt']);
+      allow delete: if owns('ownerId');
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create: if isUser(uid) && keysOnly(['uid','role','createdAt']);
+        allow delete: if isUser(uid);
+      }
     }
 
     match /listings/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && creating('sellerId');
-      allow update, delete: if owns('sellerId');
+      allow create: if signedIn() && created('sellerId')
+        && keysOnly(['sellerId','sellerName','title','description','price','currency','type','photos','status','createdAt'])
+        && strMax('title', 200) && request.resource.data.price is number && request.resource.data.price >= 0;
+      allow update: if owns('sellerId') && unchanged(['sellerId','createdAt']);
+      allow delete: if owns('sellerId');
     }
 
     match /reports/{id} {
-      allow create: if signedIn() && creating('reporterId');
+      allow create: if signedIn() && created('reporterId')
+        && keysOnly(['reporterId','targetType','targetId','targetOwnerId','reason','note','status','createdAt']);
       allow read, update, delete: if false; // triage in console only
     }
   }

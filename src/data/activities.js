@@ -17,7 +17,7 @@ export const activities = [
     verified: true,
     follow: true,
     time: "54 min · 23 Dec 2023",
-    text: "hike/summit Mt Wilson this Sunday at 6:00 AM 🥾",
+    text: "hike/summit Mt Wilson this Sunday at 6:00 AM",
     photo: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=300&q=70",
     attendees: [
       "https://i.pravatar.cc/100?img=5",

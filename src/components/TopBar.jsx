@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import Logo from "./Logo.jsx";
-import { Bell, ChevronDown } from "./Icons.jsx";
+import { Bell } from "./Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 
 export default function TopBar({ scope = "Community" }) {
@@ -11,7 +11,7 @@ export default function TopBar({ scope = "Community" }) {
       <Logo size={34} showWord={false} />
       <div className="flex items-center gap-2">
         <button className="flex items-center gap-1.5 bg-white rounded-full pl-4 pr-3 py-2 text-sm font-semibold text-brand-navy shadow-card">
-          {scope} <ChevronDown className="w-4 h-4 text-brand-green" />
+          {scope}
         </button>
         <button onClick={() => nav("/notifications")} className="relative w-10 h-10 rounded-full bg-white shadow-card grid place-items-center text-brand-navy">
           <Bell className="w-5 h-5" />

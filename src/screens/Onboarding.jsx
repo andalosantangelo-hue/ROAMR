@@ -70,7 +70,7 @@ export default function Onboarding() {
           </button>
           <p className="text-center text-[14px] text-ink/80 mt-4">
             Have another activity in mind?{" "}
-            <span className="text-brand-green font-semibold">Request here</span>
+            <a href="mailto:hello@roamr.app?subject=ROAMR%20activity%20request" className="text-brand-green font-semibold">Request here</a>
           </p>
         </div>
       </div>

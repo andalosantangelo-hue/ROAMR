@@ -38,6 +38,7 @@ export const Apple = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+export const Phone = (p) => (<S {...p}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></S>);
 export const Hiking = (p) => (<S {...p}><circle cx="13" cy="4" r="1.6" fill="currentColor" stroke="none"/><path d="M11 8l-2 4 3 2 1 5"/><path d="M11 8l3 1 2 3"/><path d="M9 12l-2 8"/><path d="M16 21V9"/></S>);
 export const Water = (p) => (<S {...p}><path d="M3 8c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0"/><path d="M3 13c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0"/><path d="M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0"/></S>);
 export const Bike = (p) => (<S {...p}><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l4-7h5l3 7"/><path d="M10 10l2-3h3"/></S>);

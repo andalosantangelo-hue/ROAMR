@@ -52,7 +52,7 @@ export function PostsProvider({ children }) {
     return () => { ul(); us(); };
   }, [user]);
 
-  const base = remote.length ? remote : seed;
+  const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const posts = base.filter((p) => !blockedIds.has(p.authorId));
 
   const addPost = async ({ title, location, rating, file }) => {

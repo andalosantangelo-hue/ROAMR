@@ -23,7 +23,7 @@ export async function registerPush(uid) {
     PushNotifications.addListener("registration", async (token) => {
       if (!activeUid) return;
       try {
-        await setDoc(doc(db, "users", activeUid),
+        await setDoc(doc(db, "users", activeUid, "private", "data"),
           { fcmTokens: arrayUnion(token.value), updatedAt: serverTimestamp() }, { merge: true });
       } catch (e) { console.warn("token save:", e.message); }
     });

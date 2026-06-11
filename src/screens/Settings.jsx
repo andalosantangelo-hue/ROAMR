@@ -7,9 +7,9 @@ import { ChevronRight, Info } from "../components/Icons.jsx";
 
 export default function Settings() {
   const nav = useNavigate();
-  const { user, profile, saveProfile, blockedIds, unblockUser, logout, deleteAccount } = useAuth();
+  const { user, profile, savePrivate, blockedIds, unblockUser, logout, deleteAccount } = useAuth();
   const prefs = profile?.notificationPrefs || { kudos: true, comments: true, activityJoin: true, tribeMember: true, newFollower: true };
-  const togglePref = (k) => saveProfile({ notificationPrefs: { ...prefs, [k]: !prefs[k] } });
+  const togglePref = (k) => savePrivate({ notificationPrefs: { ...prefs, [k]: !prefs[k] } });
   const [pushMsg, setPushMsg] = useState("");
   const enablePush = async () => {
     try { await registerPush(user.uid); setPushMsg("Notifications enabled on this device."); }
@@ -17,6 +17,8 @@ export default function Settings() {
   };
   const PREF_LABELS = { kudos: "Kudos on your posts", comments: "Comments", activityJoin: "Activity joins", tribeMember: "New tribe members", newFollower: "New followers" };
   const [confirm, setConfirm] = useState(false);
+  const [analyticsOn, setAnalyticsOn] = useState(() => typeof localStorage !== "undefined" && localStorage.getItem("roamr_analytics_consent") === "yes");
+  const toggleAnalytics = () => { const v = !analyticsOn; setAnalyticsOn(v); try { localStorage.setItem("roamr_analytics_consent", v ? "yes" : "no"); } catch {} };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,16 +48,23 @@ export default function Settings() {
       <div className="flex-1 overflow-y-auto no-scrollbar px-6 pt-2 pb-6">
         <section className="mb-7">
           <h2 className="text-sm font-bold text-ink/60 uppercase tracking-wide mb-2">Legal</h2>
-          <a href="/privacy" className="flex items-center gap-3 py-3.5 border-b border-black/5">
+          <a href="https://roamr.app/privacy" target="_blank" rel="noreferrer" className="flex items-center gap-3 py-3.5 border-b border-black/5">
             <Info className="w-5 h-5 text-brand-navy" />
             <span className="flex-1 font-semibold text-ink">Privacy Policy</span>
             <ChevronRight className="w-5 h-5 text-muted" />
           </a>
-          <a href="/terms" className="flex items-center gap-3 py-3.5">
+          <a href="https://roamr.app/terms" target="_blank" rel="noreferrer" className="flex items-center gap-3 py-3.5">
             <Info className="w-5 h-5 text-brand-navy" />
             <span className="flex-1 font-semibold text-ink">Terms of Service</span>
             <ChevronRight className="w-5 h-5 text-muted" />
           </a>
+          <div className="flex items-center justify-between py-3.5 border-t border-black/5">
+            <span className="font-semibold text-ink">Share analytics</span>
+            <button onClick={toggleAnalytics}
+              className={`w-11 h-6 rounded-full transition relative ${analyticsOn ? "bg-brand-green" : "bg-black/15"}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${analyticsOn ? "left-[22px]" : "left-0.5"}`} />
+            </button>
+          </div>
         </section>
 
         <section className="mb-7">

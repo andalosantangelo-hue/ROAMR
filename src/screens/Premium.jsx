@@ -21,7 +21,7 @@ export default function Premium() {
       <div className="rounded-2xl border border-black/10 p-4">
         <div className="flex items-center gap-3 pb-3 border-b border-black/5">
           <span className="w-11 h-11 rounded-xl bg-brand-tint grid place-items-center text-xl">
-            {isPremium ? "⭐" : "🙂"}
+            {isPremium ? "★" : "•"}
           </span>
           <div>
             <div className="text-lg font-bold text-brand-navy">{tierLabel}</div>
@@ -44,8 +44,9 @@ export default function Premium() {
       </div>
 
       {!isPremium && (
-        <button className="w-full mt-6 rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4">
-          Upgrade to Premium
+        <button onClick={() => window.open("https://roamr.app/premium", "_blank", "noreferrer")}
+          className="w-full mt-6 rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4">
+          Join the Premium waitlist
         </button>
       )}
     </div>

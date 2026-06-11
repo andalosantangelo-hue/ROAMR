@@ -86,8 +86,9 @@ export default function ListingDetail() {
 
           {!isOwner && (
             <div className="px-5 pb-7 pt-3">
-              <button className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4">
-                Contact seller
+              <button onClick={() => listing.sellerId && nav(`/u/${listing.sellerId}`)}
+                className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4">
+                View seller profile
               </button>
             </div>
           )}

@@ -45,7 +45,7 @@ export function ActivitiesProvider({ children }) {
     return () => { ja(); la(); };
   }, [user]);
 
-  const base = remote.length ? remote : seed;
+  const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const activities = base.filter((a) => !blockedIds.has(a.authorId));
 
   const addActivity = async ({ text, file }) => {

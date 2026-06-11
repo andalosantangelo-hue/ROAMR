@@ -1,21 +1,19 @@
-// Downscale + compress an image File in-browser before uploading to Storage.
-// Cuts bandwidth, Storage cost, and feed load time at scale. Falls back to the
-// original file if anything goes wrong (e.g. unusual format).
+// Downscale + re-encode an image to JPEG in-browser before upload.
+// Re-encoding via canvas strips EXIF/GPS metadata — we ALWAYS return the
+// re-encoded file (never the original), so location metadata can't leak to the
+// public bucket. If the image can't be decoded, we throw so the upload aborts
+// rather than silently sending the original.
 export async function compressImage(file, { maxDim = 1600, quality = 0.82 } = {}) {
   if (!file || !file.type || !file.type.startsWith("image/")) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * scale);
-    const h = Math.round(bitmap.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w; canvas.height = h;
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
-    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
-    if (!blob || blob.size >= file.size) return file; // keep original if no win
-    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
-  } catch {
-    return file;
-  }
+  const bitmap = await createImageBitmap(file); // throws on undecodable input -> upload aborts
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+  if (!blob) throw new Error("Could not process that image — please try another.");
+  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
 }

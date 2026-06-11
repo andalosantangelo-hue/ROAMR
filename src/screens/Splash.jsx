@@ -6,7 +6,7 @@ export default function Splash() {
   return (
     <div className="relative h-full w-full text-white">
       <img
-        src="/img/splash-hero.jpg"
+        src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=900&q=80"
         alt="Mountain landscape"
         className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/15" />
@@ -28,3 +28,4 @@ export default function Splash() {
     </div>
   );
 }
+

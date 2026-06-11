@@ -1,11 +1,13 @@
 import React from "react";
 import Logo from "./Logo.jsx";
+import * as Sentry from "@sentry/react";
 
 export default class ErrorBoundary extends React.Component {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error, info) {
-    console.error("ROAMR crash:", error, info); // hook Crashlytics/Sentry here
+    console.error("ROAMR crash:", error, info);
+    Sentry.captureException(error); // no-op unless VITE_SENTRY_DSN is set
   }
   render() {
     if (!this.state.hasError) return this.props.children;

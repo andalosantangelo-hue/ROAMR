@@ -6,8 +6,8 @@ const ITEMS = [
   { icon: Edit, title: "Edit Profile", sub: "Update personal info, and picture", to: "/edit-profile" },
   { icon: Gear, title: "Account Settings", sub: "Manage account preferences", to: "/settings" },
   { icon: Card, title: "Membership", sub: "Change your plan and payment method", to: "/app/premium" },
-  { icon: Help, title: "Help Centre", sub: "Share your feedback or questions with us" },
-  { icon: Info, title: "About", sub: "Terms of Service and Privacy Policy" },
+  { icon: Help, title: "Help Centre", sub: "Share your feedback or questions with us", url: "https://roamr.app/help" },
+  { icon: Info, title: "About", sub: "Terms of Service and Privacy Policy", url: "https://roamr.app/about" },
 ];
 
 export default function Profile() {
@@ -35,8 +35,8 @@ export default function Profile() {
       </div>
 
       <div className="divide-y divide-black/5">
-        {ITEMS.map(({ icon: Icon, title, sub, to }) => (
-          <button key={title} onClick={() => to && nav(to)}
+        {ITEMS.map(({ icon: Icon, title, sub, to, url }) => (
+          <button key={title} onClick={() => to ? nav(to) : url ? window.open(url, "_blank", "noreferrer") : null}
             className="w-full flex items-center gap-4 py-4 text-left">
             <Icon className="w-6 h-6 text-brand-navy shrink-0" />
             <div className="flex-1 min-w-0">

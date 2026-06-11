@@ -44,7 +44,6 @@ export default function ActivityCard({ item }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span onClick={goAuthor} className="font-semibold text-ink text-[15px] truncate cursor-pointer">{name}</span>
-            {item.verified && <span className="w-4 h-4 rounded-full bg-brand-green text-white grid place-items-center text-[9px]">✓</span>}
             <FollowButton targetUid={item.authorId} />
           </div>
           <span className="text-muted text-[12px]">{fmt(item)}</span>

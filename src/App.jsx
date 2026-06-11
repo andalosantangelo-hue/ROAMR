@@ -29,6 +29,7 @@ import { ActivitiesProvider } from "./store/ActivitiesContext.jsx";
 import { ListingsProvider } from "./store/ListingsContext.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import OfflineBanner from "./components/OfflineBanner.jsx";
+import ConsentBanner from "./components/ConsentBanner.jsx";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
     <ListingsProvider>
     <PhoneFrame>
       <OfflineBanner />
+      <ConsentBanner />
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />

@@ -3,7 +3,7 @@ service firebase.storage {
   match /b/{bucket}/o {
     function img() {
       return request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
     function isUser(uid) { return request.auth != null && request.auth.uid == uid; }
 

@@ -8,30 +8,49 @@ import {
   doc, getDoc, setDoc, deleteDoc, addDoc, collection, collectionGroup, getDocs, query, where,
   onSnapshot, orderBy, limit, serverTimestamp,
 } from "firebase/firestore";
-import { auth, db } from "../lib/firebase.js";
+import { ref as sref, listAll, deleteObject } from "firebase/storage";
+import { auth, db, storage } from "../lib/firebase.js";
 import { toggleSet } from "../lib/util.js";
 
 const AuthContext = createContext(null);
 
+// Private fields (email/phone/tokens/prefs) live in users/{uid}/private/data —
+// readable ONLY by the owner. The users/{uid} doc holds public profile fields.
+const privDoc = (uid) => doc(db, "users", uid, "private", "data");
+
+// Recursively delete everything under a Storage path (best-effort).
+async function deleteStoragePrefix(path) {
+  try {
+    const res = await listAll(sref(storage, path));
+    await Promise.all(res.items.map((i) => deleteObject(i).catch(() => {})));
+    await Promise.all(res.prefixes.map((pre) => deleteStoragePrefix(pre.fullPath)));
+  } catch { /* nothing there / not permitted */ }
+}
+
 async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
-  const base = {
+  const pubBase = {
     displayName: user.displayName || null,
+    photoURL: user.photoURL || null,
+    updatedAt: serverTimestamp(),
+  };
+  const privBase = {
     email: user.email || null,
     phoneNumber: user.phoneNumber || null,
-    photoURL: user.photoURL || null,
     updatedAt: serverTimestamp(),
   };
   if (!snap.exists()) {
     await setDoc(ref, {
-      uid: user.uid, ...base, interests: [], bio: "",
+      uid: user.uid, ...pubBase, interests: [], bio: "",
       subscription: { tier: "basic", source: "manual", renewsAt: null, amount: null },
       followingCount: 0, followerCount: 0, createdAt: serverTimestamp(),
     });
+    await setDoc(privDoc(user.uid), { ...privBase, fcmTokens: [], notificationPrefs: {}, createdAt: serverTimestamp() });
     return { isNew: true, interests: [] };
   }
-  await setDoc(ref, base, { merge: true });
+  await setDoc(ref, pubBase, { merge: true });
+  await setDoc(privDoc(user.uid), privBase, { merge: true });
   return { isNew: false, interests: snap.data().interests || [] };
 }
 
@@ -48,8 +67,11 @@ export function AuthProvider({ children }) {
       setUser(u);
       if (u) {
         try {
-          const snap = await getDoc(doc(db, "users", u.uid));
-          setProfile(snap.exists() ? snap.data() : null);
+          const [pub, priv] = await Promise.all([
+            getDoc(doc(db, "users", u.uid)),
+            getDoc(privDoc(u.uid)),
+          ]);
+          setProfile({ ...(pub.exists() ? pub.data() : {}), ...(priv.exists() ? priv.data() : {}) });
         } catch { setProfile(null); }
       } else { setProfile(null); }
       setLoading(false);
@@ -57,7 +79,6 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
-  // Blocked users (for content filtering, §9.A.3)
   useEffect(() => {
     if (!user) { setBlockedIds(new Set()); return; }
     return onSnapshot(
@@ -67,7 +88,6 @@ export function AuthProvider({ children }) {
     );
   }, [user]);
 
-  // Who I follow (drives Follow buttons). Counts maintained by Cloud Function.
   useEffect(() => {
     if (!user) { setFollowingIds(new Set()); return; }
     return onSnapshot(
@@ -77,7 +97,6 @@ export function AuthProvider({ children }) {
     );
   }, [user]);
 
-  // In-app notification inbox (written by Cloud Functions)
   useEffect(() => {
     if (!user) { setNotifications([]); return; }
     return onSnapshot(
@@ -98,13 +117,13 @@ export function AuthProvider({ children }) {
   const toggleFollow = async (targetUid) => {
     if (!user || !targetUid || targetUid === user.uid) return;
     const was = followingIds.has(targetUid);
-    setFollowingIds((p) => toggleSet(p, targetUid)); // optimistic
+    setFollowingIds((p) => toggleSet(p, targetUid));
     try {
       const ref = doc(db, "users", user.uid, "following", targetUid);
       if (was) await deleteDoc(ref);
       else await setDoc(ref, { targetUid, createdAt: serverTimestamp() });
     } catch (e) {
-      setFollowingIds((p) => toggleSet(p, targetUid)); // rollback
+      setFollowingIds((p) => toggleSet(p, targetUid));
       console.warn("follow:", e.message);
     }
   };
@@ -136,8 +155,13 @@ export function AuthProvider({ children }) {
     await setDoc(doc(db, "users", auth.currentUser.uid), { interests, updatedAt: serverTimestamp() }, { merge: true });
     setProfile((p) => ({ ...(p || {}), interests }));
   };
+  // Private fields (notificationPrefs, etc.) → owner-only users/{uid}/private/data
+  const savePrivate = async (fields) => {
+    if (!auth.currentUser) return;
+    await setDoc(privDoc(auth.currentUser.uid), { ...fields, updatedAt: serverTimestamp() }, { merge: true });
+    setProfile((p) => ({ ...(p || {}), ...fields }));
+  };
 
-  // §9.A.3 — report + block
   const reportContent = async ({ targetType, targetId, targetOwnerId, reason = "other", note = "" }) => {
     if (!user) return;
     await addDoc(collection(db, "reports"), {
@@ -154,37 +178,44 @@ export function AuthProvider({ children }) {
     await deleteDoc(doc(db, "users", user.uid, "blocked", targetUid));
   };
 
-  // §9.A.1 — in-app account deletion (client teardown; robust fan-out is a Cloud Function later)
+  // In-app account deletion (client teardown; robust fan-out is a Cloud Function later)
   const deleteAccount = async () => {
     const u = auth.currentUser;
     if (!u) return;
     const uid = u.uid;
-    // 1. Remove my presence docs everywhere — the Cloud Functions decrement the
-    //    parent counters (likeCount/attendeeCount/memberCount, follower counts).
     for (const grp of ["likes", "attendees", "members"]) {
       const qs = await getDocs(query(collectionGroup(db, grp), where("uid", "==", uid)));
       await Promise.all(qs.docs.map((d) => deleteDoc(d.ref)));
     }
-    // 2. My own subcollections (following deletes drive follower-count decrements)
-    for (const sub of ["following", "saves", "blocked"]) {
+    for (const sub of ["following", "saves", "blocked", "notifications", "private"]) {
       const qs = await getDocs(collection(db, "users", uid, sub));
       await Promise.all(qs.docs.map((d) => deleteDoc(d.ref)));
     }
-    // 3. My owned top-level content
-    for (const [coll, field] of [["posts", "authorId"], ["activities", "authorId"], ["listings", "sellerId"], ["tribes", "ownerId"]]) {
+    for (const [coll, field, subs] of [
+      ["posts", "authorId", ["likes", "comments"]],
+      ["activities", "authorId", ["likes", "comments", "attendees"]],
+      ["tribes", "ownerId", ["members"]],
+      ["listings", "sellerId", []],
+    ]) {
       const qs = await getDocs(query(collection(db, coll), where(field, "==", uid)));
-      await Promise.all(qs.docs.map((d) => deleteDoc(d.ref)));
+      for (const d of qs.docs) {
+        for (const sub of subs) {
+          const sq = await getDocs(collection(d.ref, sub));
+          await Promise.all(sq.docs.map((x) => deleteDoc(x.ref)));
+        }
+        await deleteDoc(d.ref);
+      }
     }
-    // 4. Identity doc, then the auth user last
+    await Promise.all(["avatars", "posts", "activities", "listings"].map((pfx) => deleteStoragePrefix(`${pfx}/${uid}`)));
     await deleteDoc(doc(db, "users", uid));
-    await deleteUser(u); // throws auth/requires-recent-login if session stale
+    await deleteUser(u);
   };
 
   return (
     <AuthContext.Provider value={{
       user, profile, blockedIds, loading,
       emailMethods, signInEmail, signUpEmail, googleSignIn, appleSignIn,
-      resetPassword, logout, saveInterests, saveProfile,
+      resetPassword, logout, saveInterests, saveProfile, savePrivate,
       reportContent, blockUser, unblockUser, deleteAccount, resendVerification, followingIds, toggleFollow,
       notifications, unreadCount, markNotifsRead,
     }}>

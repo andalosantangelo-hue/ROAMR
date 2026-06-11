@@ -14,7 +14,7 @@ const bump = (path, field, n) =>
 
 async function notify(recipientUid, actorUid, prefKey, title, body, data = {}) {
   if (!recipientUid || recipientUid === actorUid) return;
-  const snap = await db.doc(`users/${recipientUid}`).get();
+  const snap = await db.doc(`users/${recipientUid}/private/data`).get();
   if (!snap.exists) return;
   const u = snap.data();
   if ((u.notificationPrefs || {})[prefKey] === false) return;
@@ -42,7 +42,7 @@ exports.onPostLikeCreate = onDocumentCreated("posts/{postId}/likes/{uid}", async
   const { postId, uid } = e.params;
   await bump(`posts/${postId}`, "likeCount", 1);
   const post = (await db.doc(`posts/${postId}`).get()).data();
-  if (post) { await notify(post.authorId, uid, "kudos", "New kudos 👏", `Someone liked "${post.title || "your post"}"`, { type: "post", id: postId }); await record(post.authorId, uid, "like", "Someone liked your post", `/comments/posts/${postId}`); }
+  if (post) { await notify(post.authorId, uid, "kudos", "New kudos", `Someone liked "${post.title || "your post"}"`, { type: "post", id: postId }); await record(post.authorId, uid, "like", "Someone liked your post", `/comments/posts/${postId}`); }
 });
 exports.onPostLikeDelete = onDocumentDeleted("posts/{postId}/likes/{uid}", async (e) =>
   bump(`posts/${e.params.postId}`, "likeCount", -1));
@@ -88,7 +88,7 @@ exports.onActJoinCreate = onDocumentCreated("activities/{id}/attendees/{uid}", a
     tx.update(ref, { attendeeCount: FieldValue.increment(1), recentAttendees: next });
   }).catch(() => {});
   const act = (await ref.get()).data();
-  if (act) { await notify(act.authorId, uid, "activityJoin", "Someone's joining 🥾", `${(a && a.displayName) || "Someone"} joined your activity`, { type: "activity", id }); await record(act.authorId, uid, "join", `${(a && a.displayName) || "Someone"} joined your activity`, `/comments/activities/${id}`); }
+  if (act) { await notify(act.authorId, uid, "activityJoin", "Someone's joining", `${(a && a.displayName) || "Someone"} joined your activity`, { type: "activity", id }); await record(act.authorId, uid, "join", `${(a && a.displayName) || "Someone"} joined your activity`, `/comments/activities/${id}`); }
 });
 exports.onActJoinDelete = onDocumentDeleted("activities/{id}/attendees/{uid}", async (e) => {
   const { id, uid } = e.params;
