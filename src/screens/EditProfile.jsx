@@ -55,7 +55,7 @@ export default function EditProfile() {
             {photo ? (
               <img src={photo} alt="" className="w-28 h-28 rounded-full object-cover" />
             ) : (
-              <span className="w-28 h-28 rounded-full bg-brand-navy text-brand-green grid place-items-center">
+              <span className="w-28 h-28 rounded-full bg-brand-navy text-brand-greenBright grid place-items-center">
                 <UserIcon className="w-14 h-14" />
               </span>
             )}

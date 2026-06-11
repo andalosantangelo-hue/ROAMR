@@ -40,7 +40,7 @@ export default function Marketplace() {
         <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <GridSkeleton key={i} />)}</div>
       ) : shown.length === 0 ? (
         <div className="flex flex-col items-center text-center mt-16 px-8">
-          <span className="w-20 h-20 rounded-2xl bg-brand-navy text-brand-green grid place-items-center mb-5">
+          <span className="w-20 h-20 rounded-2xl bg-brand-navy text-brand-greenBright grid place-items-center mb-5">
             <Market className="w-10 h-10" />
           </span>
           <h2 className="text-lg font-extrabold text-brand-navy mb-1">{q ? "No gear found" : "No gear listed yet"}</h2>

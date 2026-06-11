@@ -35,7 +35,7 @@ export default function Notifications() {
           return (
             <button key={n.id} onClick={() => n.link && nav(n.link)}
               className={`w-full flex items-center gap-3 px-5 py-3.5 text-left border-b border-black/5 ${n.read ? "" : "bg-brand-tint/40"}`}>
-              <span className="w-9 h-9 rounded-full bg-brand-navy text-brand-green grid place-items-center shrink-0">
+              <span className="w-9 h-9 rounded-full bg-brand-navy text-brand-greenBright grid place-items-center shrink-0">
                 <Icon className="w-5 h-5" />
               </span>
               <span className="flex-1 text-ink text-[14px]">{n.text}</span>

@@ -49,7 +49,7 @@ export default function PublicProfile() {
           {p?.photoURL ? (
             <img src={p.photoURL} alt="" className="w-24 h-24 rounded-full object-cover" />
           ) : (
-            <span className="w-24 h-24 rounded-full bg-brand-navy text-brand-green grid place-items-center">
+            <span className="w-24 h-24 rounded-full bg-brand-navy text-brand-greenBright grid place-items-center">
               <UserIcon className="w-12 h-12" />
             </span>
           )}

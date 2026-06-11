@@ -1,12 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { Home, Activities, Tribes, Market, Premium, Profile } from "./Icons.jsx";
+import { Home, Activities, Tribes, Market, Profile } from "./Icons.jsx";
 
 const tabs = [
   { to: "/app/home", label: "Home", Icon: Home },
   { to: "/app/activities", label: "Activities", Icon: Activities },
   { to: "/app/tribes", label: "Tribes", Icon: Tribes },
   { to: "/app/marketplace", label: "Marketplace", Icon: Market },
-  { to: "/app/premium", label: "Premium", Icon: Premium },
   { to: "/app/profile", label: "Profile", Icon: Profile },
 ];
 
@@ -19,7 +18,7 @@ export default function BottomNav() {
             <NavLink to={to}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-1 text-[10px] font-medium transition-colors ${
-                  isActive ? "text-brand-green" : "text-white/60"
+                  isActive ? "text-brand-greenBright" : "text-white/60"
                 }`
               }>
               <Icon className="w-[22px] h-[22px]" />

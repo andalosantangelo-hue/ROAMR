@@ -13,7 +13,7 @@ export default function TribeCard({ tribe }) {
       {tribe.img ? (
         <img src={tribe.img} alt="" className="w-14 h-14 rounded-xl object-cover bg-brand-tint shrink-0" />
       ) : (
-        <span className="w-14 h-14 rounded-xl bg-brand-navy text-brand-green grid place-items-center shrink-0">
+        <span className="w-14 h-14 rounded-xl bg-brand-navy text-brand-greenBright grid place-items-center shrink-0">
           <TribesIcon className="w-7 h-7" />
         </span>
       )}
