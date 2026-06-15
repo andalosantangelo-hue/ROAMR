@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
-  collection, collectionGroup, addDoc, setDoc, deleteDoc, updateDoc, doc,
-  onSnapshot, query, orderBy, where, limit, serverTimestamp, increment,
+  collection, collectionGroup, addDoc, setDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, where, limit, serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "../lib/firebase.js";
@@ -20,7 +20,6 @@ export function TribesProvider({ children }) {
   const [joinedIds, setJoinedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Live tribes list
   useEffect(() => {
     const q = query(collection(db, "tribes"), orderBy("createdAt", "desc"), limit(50));
     return onSnapshot(
@@ -30,7 +29,6 @@ export function TribesProvider({ children }) {
     );
   }, []);
 
-  // Which tribes the signed-in user belongs to (presence docs)
   useEffect(() => {
     if (!user) { setJoinedIds(new Set()); return; }
     const q = query(collectionGroup(db, "members"), where("uid", "==", user.uid));
@@ -47,7 +45,7 @@ export function TribesProvider({ children }) {
 
   const tribes = remote.length ? remote : (import.meta.env.DEV ? seed : []);
 
-  const addTribe = async ({ name, file, category = null }) => {
+  const addTribe = async ({ name, file, categories = [], location = "", description = "" }) => {
     let img = null;
     if (file) {
       const up = await compressImage(file);
@@ -56,7 +54,8 @@ export function TribesProvider({ children }) {
     }
     const uid = auth.currentUser?.uid || null;
     const docRef = await addDoc(collection(db, "tribes"), {
-      name, img, category, memberCount: 0, ownerId: uid, createdAt: serverTimestamp(), // owner member doc triggers +1
+      name, img, categories: categories || [], location: location || "", description: description || "",
+      memberCount: 0, ownerId: uid, createdAt: serverTimestamp(),
     });
     if (uid) {
       await setDoc(doc(db, "tribes", docRef.id, "members", uid),
@@ -66,7 +65,6 @@ export function TribesProvider({ children }) {
     track("create_success", { type: "tribe" });
   };
 
-  // Optimistic join/leave (§8.1). Demo-seed tribes (no Firestore doc) flip locally only.
   const toggleMembership = async (tribe) => {
     if (!user) return;
     const id = tribe.id;
@@ -78,8 +76,7 @@ export function TribesProvider({ children }) {
 
     try {
       const mref = doc(db, "tribes", id, "members", user.uid);
-      const tref = doc(db, "tribes", id);
-      if (wasJoined) { await deleteDoc(mref); }       // memberCount maintained by Cloud Function
+      if (wasJoined) { await deleteDoc(mref); }
       else {
         await setDoc(mref, {
           uid: user.uid,
@@ -89,7 +86,7 @@ export function TribesProvider({ children }) {
         track("tribe_join");
       }
     } catch (e) {
-      setJoinedIds((prev) => toggleSet(prev, id)); // revert
+      setJoinedIds((prev) => toggleSet(prev, id));
       console.warn("membership:", e.message);
     }
   };

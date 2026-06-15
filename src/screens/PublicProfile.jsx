@@ -3,20 +3,28 @@ import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import { useMessages } from "../store/MessagesContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import PostCard from "../components/PostCard.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import { PostSkeleton } from "../components/Skeleton.jsx";
-import { Profile as UserIcon } from "../components/Icons.jsx";
+import { Profile as UserIcon, Comment, Edit } from "../components/Icons.jsx";
+
+const INTEREST_LABELS = {
+  outdoor: "Outdoor Adventures", water: "Water Activities", wheel: "Wheel Sports",
+  nature: "Nature & Wildlife", snow: "Snow Adventures",
+};
 
 export default function PublicProfile() {
   const { uid } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
+  const { openThread } = useMessages();
   const [p, setP] = useState(null);
   const [loadingP, setLoadingP] = useState(true);
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [opening, setOpening] = useState(false);
   const isMe = user && user.uid === uid;
 
   useEffect(() => {
@@ -35,37 +43,95 @@ export default function PublicProfile() {
   }, [uid]);
 
   const name = p?.displayName || (p?.email ? p.email.split("@")[0] : "Explorer");
+  const interests = Array.isArray(p?.interests) ? p.interests : [];
+
+  const message = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const tid = await openThread({ uid, name, photo: p?.photoURL || "" });
+      if (tid) nav(`/chat/${tid}`);
+    } catch (e) { console.warn("openThread:", e.message); }
+    finally { setOpening(false); }
+  };
 
   return (
     <div className="h-full flex flex-col bg-white">
       <StatusBar />
       <div className="flex items-center gap-3 px-5 py-3">
-        <button onClick={() => nav(-1)} className="text-brand-navy text-2xl leading-none">‹</button>
+        <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <h1 className="text-lg font-semibold text-brand-navy truncate">{loadingP ? "Profile" : name}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="px-6 pt-3 pb-5 flex flex-col items-center text-center border-b border-black/5">
+        {/* Hero photo */}
+        <div className="relative">
           {p?.photoURL ? (
-            <img src={p.photoURL} alt="" className="w-24 h-24 rounded-full object-cover" />
+            <img src={p.photoURL} alt="" className="w-full aspect-square object-cover" />
           ) : (
-            <span className="w-24 h-24 rounded-full bg-brand-navy text-brand-greenBright grid place-items-center">
-              <UserIcon className="w-12 h-12" />
-            </span>
+            <div className="w-full aspect-square bg-brand-navy grid place-items-center">
+              <UserIcon className="w-24 h-24 text-brand-greenBright" />
+            </div>
           )}
-          <h2 className="text-xl font-extrabold text-brand-navy mt-3">{name}</h2>
-          {p?.bio && <p className="text-ink/80 text-sm mt-1 max-w-xs">{p.bio}</p>}
-          <div className="flex gap-6 mt-3 text-center">
-            <div><span className="font-bold text-brand-navy">{p?.followerCount ?? 0}</span> <span className="text-muted text-sm">followers</span></div>
-            <div><span className="font-bold text-brand-navy">{p?.followingCount ?? 0}</span> <span className="text-muted text-sm">following</span></div>
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/65 to-transparent" />
+          <div className="absolute left-5 right-5 bottom-3 text-white">
+            <h2 className="text-2xl font-extrabold drop-shadow">{name}</h2>
+            {p?.location && <p className="text-white/90 text-sm font-medium drop-shadow">{p.location}</p>}
           </div>
-          {!isMe && <div className="mt-4"><FollowButton targetUid={uid} variant="pill" /></div>}
         </div>
 
-        <div className="px-4 py-4 space-y-4">
+        {/* Stats + actions */}
+        <div className="px-5 pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-6">
+              <div><span className="font-bold text-brand-navy">{p?.followerCount ?? 0}</span> <span className="text-muted text-sm">followers</span></div>
+              <div><span className="font-bold text-brand-navy">{p?.followingCount ?? 0}</span> <span className="text-muted text-sm">following</span></div>
+            </div>
+            {isMe ? (
+              <button onClick={() => nav("/edit-profile")}
+                className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5">
+                <Edit className="w-4 h-4" /> Edit
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <FollowButton targetUid={uid} variant="pill" />
+                <button onClick={message} disabled={opening}
+                  className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5 active:scale-[0.98] transition">
+                  <Comment className="w-4 h-4" /> Message
+                </button>
+              </div>
+            )}
+          </div>
+
+          {p?.bio && (
+            <div className="mt-4 rounded-2xl bg-brand-tint p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-brand-navy/60 mb-1">About me</p>
+              <p className="text-ink/90 text-[15px] leading-relaxed">{p.bio}</p>
+            </div>
+          )}
+
+          {interests.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-brand-navy/60 mb-2">Into</p>
+              <div className="flex flex-wrap gap-2">
+                {interests.map((i) => (
+                  <span key={i} className="px-3.5 py-1.5 rounded-full bg-white border border-brand-green/30 text-brand-navy text-[13px] font-semibold">
+                    {INTEREST_LABELS[i] || i}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Posts */}
+        <div className="px-4 py-5 mt-1 space-y-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-navy/60 px-1">
+            {isMe ? "My posts" : "Posts"}
+          </p>
           {loadingPosts ? [0, 1].map((i) => <PostSkeleton key={i} />)
             : posts.length === 0
-              ? <p className="text-center text-muted text-sm mt-8">No posts yet.</p>
+              ? <p className="text-center text-muted text-sm mt-2">{isMe ? "You haven't posted yet." : "No posts yet."}</p>
               : posts.map((post) => <PostCard key={post.id} post={post} />)}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { compressImage } from "../lib/image.js";
+import { titleCase } from "../lib/util.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { Profile as UserIcon, Edit } from "../components/Icons.jsx";
 
@@ -13,6 +14,7 @@ export default function EditProfile() {
 
   const [name, setName] = useState(profile?.displayName || user?.displayName || "");
   const [bio, setBio] = useState(profile?.bio || "");
+  const [location, setLocation] = useState(profile?.location || "");
   const [photo, setPhoto] = useState(profile?.photoURL || user?.photoURL || null);
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -34,7 +36,7 @@ export default function EditProfile() {
         const snap = await uploadBytes(ref(storage, `avatars/${uid}/${Date.now()}-${up.name}`), up);
         photoURL = await getDownloadURL(snap.ref);
       }
-      await saveProfile({ displayName: name.trim(), bio: bio.trim(), photoURL });
+      await saveProfile({ displayName: titleCase(name), bio: bio.trim(), location: location.trim(), photoURL });
       nav(-1);
     } catch (e) {
       setError(e.message || "Could not save."); setBusy(false);
@@ -45,13 +47,13 @@ export default function EditProfile() {
     <div className="h-full flex flex-col bg-white">
       <StatusBar />
       <div className="flex items-center gap-3 px-5 py-3">
-        <button onClick={() => nav(-1)} className="text-brand-navy text-2xl leading-none">‹</button>
+        <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <h1 className="text-lg font-semibold text-brand-navy">Edit Profile</h1>
       </div>
 
       <div className="flex-1 px-6 pt-2 overflow-y-auto no-scrollbar">
         <div className="flex flex-col items-center">
-          <button onClick={() => fileRef.current?.click()} className="relative">
+          <button onClick={() => fileRef.current?.click()} aria-label="Change photo" className="relative">
             {photo ? (
               <img src={photo} alt="" className="w-28 h-28 rounded-full object-cover" />
             ) : (
@@ -66,8 +68,12 @@ export default function EditProfile() {
           <input ref={fileRef} type="file" accept="image/*" onChange={pick} className="hidden" />
         </div>
 
-        <label className="block mt-7 text-sm font-semibold text-ink/80 mb-2">Display name</label>
+        <label className="block mt-7 text-sm font-semibold text-ink/80 mb-2">Display Name</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
+          className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
+
+        <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Denver, CO"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Bio</label>

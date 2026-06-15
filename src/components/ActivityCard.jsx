@@ -16,6 +16,13 @@ const fmt = (a) => {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 };
 
+const fmtWhen = (w) => {
+  if (!w) return "";
+  const d = new Date(w);
+  if (isNaN(d)) return "";
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
+
 export default function ActivityCard({ item }) {
   const nav = useNavigate();
   const { joinedIds, likedIds, toggleAttend, toggleLike } = useActivities();
@@ -35,6 +42,8 @@ export default function ActivityCard({ item }) {
   const totalAtt = item.attendeeCount ?? ((item.attendees?.length || 0) + (item.extraCount || 0));
   const extra = Math.max(0, totalAtt - shown.length);
   const hasRow = item.photo || avatarUrls.length > 0;
+  const whenLabel = fmtWhen(item.when);
+  const hasMeta = item.location || whenLabel || (item.skillLevel && item.skillLevel !== "All Levels");
 
   return (
     <article className="bg-white rounded-2xl shadow-card px-4 py-3.5">
@@ -52,6 +61,16 @@ export default function ActivityCard({ item }) {
       </div>
 
       <p className="text-ink text-[15px] mt-2.5">{item.text}</p>
+
+      {hasMeta && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+          {item.location && <span className="text-[13px] text-muted font-medium">{item.location}</span>}
+          {whenLabel && <span className="text-[13px] text-muted font-medium">· {whenLabel}</span>}
+          {item.skillLevel && item.skillLevel !== "All Levels" && (
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-tint text-brand-navy">{item.skillLevel}</span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mt-3">
         {item.photo && <img src={item.photo} alt="" className="w-14 h-14 rounded-xl object-cover bg-brand-tint" />}

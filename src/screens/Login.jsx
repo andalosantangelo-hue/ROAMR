@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
 import { Google, Apple } from "../components/Icons.jsx";
@@ -12,7 +12,6 @@ const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function Login() {
   const nav = useNavigate();
-  const from = useLocation().state?.from;
   const { signInEmail, signUpEmail, googleSignIn, appleSignIn, resetPassword } = useAuth();
 
   const [mode, setMode] = useState("signin"); // signin | signup
@@ -24,9 +23,10 @@ export default function Login() {
   const [dob, setDob] = useState("");
   const ageFrom = (d) => { const b = new Date(d), t = new Date(); let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--; return a; };
 
+  // New users go to onboarding; returning users always land on Home.
   const go = ({ isNew }, method = "email") => {
     track(isNew ? "sign_up" : "login", { method });
-    nav(isNew ? "/onboarding" : (from || "/app/home"));
+    nav(isNew ? "/onboarding" : "/app/home", { replace: true });
   };
 
   const submit = async (e) => {
@@ -36,7 +36,7 @@ export default function Login() {
     if (pw.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (mode === "signup") {
       if (!dob) { setError("Please enter your date of birth."); return; }
-      if (ageFrom(dob) < 13) { setError("You must be at least 13 years old to use ROAMR."); return; }
+      if (ageFrom(dob) < 18) { setError("You must be at least 18 years old to use ROAMR."); return; }
     }
     setBusy(true);
     try {
@@ -71,7 +71,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-ink/80 text-[15px] mb-5">
-          {mode === "signup" ? "Create your account to find your tribe." : "Welcome back."}
+          {mode === "signup" ? "Create Your Account to Find Your Tribe." : "Welcome Back"}
         </p>
 
         <form onSubmit={submit} className="space-y-3">
@@ -83,21 +83,21 @@ export default function Login() {
             className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
           {mode === "signup" && (
             <div>
-              <label className="block text-[13px] text-ink/70 mb-1 ml-1">Date of birth (you must be 13+)</label>
+              <label className="block text-[13px] text-ink/70 mb-1 ml-1">Date of birth (you must be 18+)</label>
               <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
             </div>
           )}
           <button type="submit" disabled={busy}
             className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4 disabled:opacity-60">
-            {busy ? "…" : mode === "signup" ? "Create account" : "Sign in"}
+            {busy ? "…" : mode === "signup" ? "Create Account" : "Sign In"}
           </button>
         </form>
 
         <div className="flex justify-between mt-3 text-[13px]">
           <button onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setError(""); }}
             className="text-brand-green font-semibold">
-            {mode === "signup" ? "Have an account? Sign in" : "New here? Create account"}
+            {mode === "signup" ? "Have an account? Sign In" : "New here? Create Account"}
           </button>
           {mode === "signin" && <button onClick={onForgot} className="text-muted font-medium">Forgot password?</button>}
         </div>
@@ -134,7 +134,7 @@ function prettyError(code) {
   const m = {
     "auth/invalid-credential": "Incorrect email or password.",
     "auth/wrong-password": "Incorrect password.",
-    "auth/user-not-found": "No account with that email — try Create account.",
+    "auth/user-not-found": "No account with that email — try Create Account.",
     "auth/email-already-in-use": "That email already has an account — sign in instead.",
     "auth/weak-password": "Choose a stronger password (6+ characters).",
     "auth/popup-closed-by-user": "Sign-in cancelled.",

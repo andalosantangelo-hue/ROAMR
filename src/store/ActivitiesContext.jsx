@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
-  collection, collectionGroup, addDoc, setDoc, deleteDoc, updateDoc, doc,
-  onSnapshot, query, orderBy, where, limit, serverTimestamp, increment, arrayUnion, arrayRemove,
+  collection, collectionGroup, addDoc, setDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, where, limit, serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase.js";
@@ -48,7 +48,7 @@ export function ActivitiesProvider({ children }) {
   const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const activities = base.filter((a) => !blockedIds.has(a.authorId));
 
-  const addActivity = async ({ text, file }) => {
+  const addActivity = async ({ text, location = "", when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
     if (!user) return;
     let photo = null;
     if (file) {
@@ -61,6 +61,7 @@ export function ActivitiesProvider({ children }) {
       authorName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
       text, photo,
+      location: location || "", when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
       attendeeCount: 0, recentAttendees: [], likeCount: 0, commentCount: 0,
       createdAt: serverTimestamp(),
     });
@@ -84,10 +85,8 @@ export function ActivitiesProvider({ children }) {
     if (!isRemote) return;
     try {
       const aref = doc(db, "activities", id, "attendees", user.uid);
-      const tref = doc(db, "activities", id);
-      const meDoc = me();
-      if (was) { await deleteDoc(aref); }            // attendeeCount + recentAttendees maintained by Cloud Function
-      else { await setDoc(aref, { ...meDoc, createdAt: serverTimestamp() }); track("activity_join"); }
+      if (was) { await deleteDoc(aref); }
+      else { await setDoc(aref, { ...me(), createdAt: serverTimestamp() }); track("activity_join"); }
     } catch (e) {
       setJoinedIds((prev) => toggleSet(prev, id));
       console.warn("attend:", e.message);
@@ -104,8 +103,7 @@ export function ActivitiesProvider({ children }) {
     if (!isRemote) return;
     try {
       const lref = doc(db, "activities", id, "likes", user.uid);
-      const tref = doc(db, "activities", id);
-      if (was) { await deleteDoc(lref); }            // likeCount maintained by Cloud Function
+      if (was) { await deleteDoc(lref); }
       else { await setDoc(lref, { uid: user.uid, createdAt: serverTimestamp() }); }
     } catch (e) {
       setLikedIds((prev) => toggleSet(prev, id));

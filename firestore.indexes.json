@@ -1,31 +1,27 @@
 {
   "indexes": [
     {
+      "collectionGroup": "threads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "arrayConfig": "CONTAINS", "fieldPath": "participants" },
+        { "fieldPath": "lastAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "listings",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "posts",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "authorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "authorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],
@@ -33,32 +29,17 @@
     {
       "collectionGroup": "members",
       "fieldPath": "uid",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
+      "indexes": [ { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" } ]
     },
     {
       "collectionGroup": "likes",
       "fieldPath": "uid",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
+      "indexes": [ { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" } ]
     },
     {
       "collectionGroup": "attendees",
       "fieldPath": "uid",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
+      "indexes": [ { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" } ]
     }
   ]
 }

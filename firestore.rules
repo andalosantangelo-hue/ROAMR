@@ -19,10 +19,10 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','updatedAt',
-                     'interests','bio','subscription','followingCount','followerCount','createdAt']);
+                     'interests','subInterests','skillLevels','bio','location','subscription','followingCount','followerCount','createdAt']);
       // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
-        && keysOnly(['uid','displayName','photoURL','bio','interests','subscription','followerCount','followingCount','createdAt','updatedAt'])
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
         && unchanged(['uid','followerCount','followingCount','subscription','createdAt']);
       allow delete: if isUser(uid);
 
@@ -78,7 +78,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && created('authorId')
         && request.resource.data.attendeeCount == 0 && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
-        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
+        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
         && strMax('text', 2000);
       allow update: if owns('authorId') && unchanged(['authorId','attendeeCount','recentAttendees','likeCount','commentCount','createdAt']);
       allow delete: if owns('authorId');
@@ -103,7 +103,8 @@ service cloud.firestore {
     match /tribes/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && created('ownerId') && request.resource.data.memberCount == 0
-        && keysOnly(['name','img','category','memberCount','ownerId','createdAt']) && strMax('name', 120);
+        && keysOnly(['name','img','category','categories','location','description','memberCount','ownerId','createdAt'])
+        && strMax('name', 120);
       allow update: if owns('ownerId') && unchanged(['ownerId','memberCount','createdAt']);
       allow delete: if owns('ownerId');
       match /members/{uid} {
@@ -111,12 +112,43 @@ service cloud.firestore {
         allow create: if isUser(uid) && keysOnly(['uid','role','createdAt']);
         allow delete: if isUser(uid);
       }
+      // Group chat — members only.
+      match /messages/{mid} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/tribes/$(id)/members/$(request.auth.uid));
+        allow create: if signedIn() && created('authorId')
+          && exists(/databases/$(database)/documents/tribes/$(id)/members/$(request.auth.uid))
+          && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt'])
+          && strMax('text', 4000);
+        allow update, delete: if false;
+      }
+    }
+
+    // Direct-message threads — only the two participants can read or post.
+    match /threads/{tid} {
+      function participants() { return get(/databases/$(database)/documents/threads/$(tid)).data.participants; }
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow create: if signedIn()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() == 2
+        && keysOnly(['participants','participantNames','participantPhotos','lastMessage','lastAt','createdAt']);
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participants
+        && unchanged(['participants','createdAt']);
+      allow delete: if false;
+      match /messages/{mid} {
+        allow read: if signedIn() && request.auth.uid in participants();
+        allow create: if signedIn() && created('senderId')
+          && request.auth.uid in participants()
+          && keysOnly(['senderId','text','createdAt']) && strMax('text', 4000);
+        allow update, delete: if false;
+      }
     }
 
     match /listings/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && created('sellerId')
-        && keysOnly(['sellerId','sellerName','title','description','price','currency','type','photos','status','createdAt'])
+        && keysOnly(['sellerId','sellerName','title','description','price','currency','type','category','photos','status','createdAt'])
         && strMax('title', 200) && request.resource.data.price is number && request.resource.data.price >= 0;
       allow update: if owns('sellerId') && unchanged(['sellerId','createdAt']);
       allow delete: if owns('sellerId');

@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import PhoneFrame from "./components/PhoneFrame.jsx";
 import TabsLayout from "./components/TabsLayout.jsx";
 import Splash from "./screens/Splash.jsx";
-import Placeholder from "./screens/Placeholder.jsx";
 import Login from "./screens/Login.jsx";
 import Onboarding from "./screens/Onboarding.jsx";
 import Home from "./screens/Home.jsx";
@@ -22,11 +21,19 @@ import Settings from "./screens/Settings.jsx";
 import PublicProfile from "./screens/PublicProfile.jsx";
 import Invite from "./screens/Invite.jsx";
 import Notifications from "./screens/Notifications.jsx";
+import About from "./screens/About.jsx";
+import HelpCenter from "./screens/HelpCenter.jsx";
+import Guides from "./screens/Guides.jsx";
+import TribeDetail from "./screens/TribeDetail.jsx";
+import Messages from "./screens/Messages.jsx";
+import Chat from "./screens/Chat.jsx";
+import HelpBot from "./screens/HelpBot.jsx";
 import { TribesProvider } from "./store/TribesContext.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { PostsProvider } from "./store/PostsContext.jsx";
 import { ActivitiesProvider } from "./store/ActivitiesContext.jsx";
 import { ListingsProvider } from "./store/ListingsContext.jsx";
+import { MessagesProvider } from "./store/MessagesContext.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import OfflineBanner from "./components/OfflineBanner.jsx";
 import ConsentBanner from "./components/ConsentBanner.jsx";
@@ -38,6 +45,7 @@ export default function App() {
     <PostsProvider>
     <ActivitiesProvider>
     <ListingsProvider>
+    <MessagesProvider>
     <PhoneFrame>
       <OfflineBanner />
       <ConsentBanner />
@@ -62,12 +70,20 @@ export default function App() {
         <Route path="/create-listing" element={<RequireAuth><CreateListing /></RequireAuth>} />
         <Route path="/listing/:id" element={<RequireAuth><ListingDetail /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+        <Route path="/about" element={<RequireAuth><About /></RequireAuth>} />
+        <Route path="/help" element={<RequireAuth><HelpCenter /></RequireAuth>} />
+        <Route path="/help/bot" element={<RequireAuth><HelpBot /></RequireAuth>} />
+        <Route path="/guides" element={<RequireAuth><Guides /></RequireAuth>} />
+        <Route path="/tribe/:id" element={<RequireAuth><TribeDetail /></RequireAuth>} />
+        <Route path="/messages" element={<RequireAuth><Messages /></RequireAuth>} />
+        <Route path="/chat/:threadId" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/u/:uid" element={<RequireAuth><PublicProfile /></RequireAuth>} />
         <Route path="/invite/:type/:id" element={<RequireAuth><Invite /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PhoneFrame>
+    </MessagesProvider>
     </ListingsProvider>
     </ActivitiesProvider>
     </PostsProvider>

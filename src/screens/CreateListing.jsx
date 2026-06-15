@@ -4,6 +4,8 @@ import StatusBar from "../components/StatusBar.jsx";
 import { useListings } from "../store/ListingsContext.jsx";
 import { Plus } from "../components/Icons.jsx";
 
+export const GEAR_CATEGORIES = ["Apparel", "Camping", "Climbing", "Water Sports", "Snow Sports", "Cycling", "Footwear", "Other"];
+
 export default function CreateListing() {
   const nav = useNavigate();
   const { addListing } = useListings();
@@ -11,6 +13,7 @@ export default function CreateListing() {
   const [desc, setDesc] = useState("");
   const [price, setPrice] = useState("");
   const [type, setType] = useState("sell");
+  const [category, setCategory] = useState("Camping");
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -29,7 +32,7 @@ export default function CreateListing() {
     if (!canPost) return;
     setBusy(true); setError("");
     try {
-      const id = await addListing({ title: title.trim(), description: desc.trim(), price, type, files });
+      const id = await addListing({ title: title.trim(), description: desc.trim(), price, type, category, files });
       nav(id ? `/listing/${id}` : "/app/marketplace");
     } catch (e) { setError(e.message || "Could not list."); setBusy(false); }
   };
@@ -38,13 +41,13 @@ export default function CreateListing() {
     <div className="h-full flex flex-col bg-white">
       <StatusBar />
       <div className="flex items-center gap-3 px-5 py-3">
-        <button onClick={() => nav(-1)} className="text-brand-navy text-2xl leading-none">‹</button>
+        <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <h1 className="text-lg font-semibold text-brand-navy">List Gear</h1>
       </div>
 
       <div className="flex-1 px-6 pt-2 overflow-y-auto no-scrollbar">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          <button onClick={() => fileRef.current?.click()}
+          <button onClick={() => fileRef.current?.click()} aria-label="Add photos"
             className="w-24 h-24 shrink-0 rounded-xl bg-brand-tint border-2 border-dashed border-brand-green/50 grid place-items-center text-brand-green">
             <Plus className="w-7 h-7" />
           </button>
@@ -59,6 +62,16 @@ export default function CreateListing() {
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2-person tent, barely used"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
+        <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Category</label>
+        <div className="flex flex-wrap gap-2">
+          {GEAR_CATEGORIES.map((c) => (
+            <button key={c} type="button" onClick={() => setCategory(c)}
+              className={`px-3.5 py-2 rounded-full text-sm font-semibold transition ${category === c ? "bg-brand-green text-white" : "bg-brand-tint text-brand-navy"}`}>
+              {c}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 gap-3 mt-5">
           <div>
             <label className="block text-sm font-semibold text-ink/80 mb-2">Price ($)</label>
@@ -70,7 +83,7 @@ export default function CreateListing() {
             <div className="flex rounded-xl border border-black/10 overflow-hidden">
               {["sell", "rent"].map((t) => (
                 <button key={t} onClick={() => setType(t)}
-                  className={`flex-1 py-4 text-sm font-semibold capitalize ${type === t ? "bg-brand-green text-white" : "bg-white text-ink"}`}>
+                  className={`flex-1 py-4 text-sm font-semibold ${type === t ? "bg-brand-green text-white" : "bg-white text-ink"}`}>
                   {t === "sell" ? "Sell" : "Rent"}
                 </button>
               ))}

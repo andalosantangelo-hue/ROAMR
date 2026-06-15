@@ -17,8 +17,8 @@ export default function BottomNav() {
           <li key={to} className="flex-1">
             <NavLink to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 py-1 text-[10px] font-medium transition-colors ${
-                  isActive ? "text-brand-greenBright" : "text-white/60"
+                `flex flex-col items-center gap-1 py-1 text-[11px] font-semibold transition-colors ${
+                  isActive ? "text-brand-greenBright" : "text-brand-greenBright/75"
                 }`
               }>
               <Icon className="w-[22px] h-[22px]" />

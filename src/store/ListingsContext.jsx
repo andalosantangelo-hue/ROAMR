@@ -22,13 +22,13 @@ export function ListingsProvider({ children }) {
       (e) => { console.warn("listings:", e.message); setLoading(false); });
   }, []);
 
-  const addListing = async ({ title, description, price, type, files }) => {
+  const addListing = async ({ title, description, price, type, category = "Other", files }) => {
     if (!user) return null;
     const docRef = await addDoc(collection(db, "listings"), {
       sellerId: user.uid,
       sellerName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
       title, description: description || "", price: Number(price) || 0, currency: "USD",
-      type, photos: [], status: "active", createdAt: serverTimestamp(),
+      type, category: category || "Other", photos: [], status: "active", createdAt: serverTimestamp(),
     });
     const urls = [];
     for (const f of files || []) {

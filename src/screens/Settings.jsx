@@ -83,7 +83,7 @@ export default function Settings() {
         </section>
 
         <section className="mb-7">
-          <h2 className="text-sm font-bold text-ink/60 uppercase tracking-wide mb-2">Blocked accounts</h2>
+          <h2 className="text-sm font-bold text-ink/60 uppercase tracking-wide mb-2">Blocked Accounts</h2>
           {blocked.length === 0 ? (
             <p className="text-muted text-sm py-2">You haven&apos;t blocked anyone.</p>
           ) : (
