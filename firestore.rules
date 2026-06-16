@@ -127,11 +127,18 @@ service cloud.firestore {
     // Direct-message threads — only the two participants can read or post.
     match /threads/{tid} {
       function participants() { return get(/databases/$(database)/documents/threads/$(tid)).data.participants; }
+      function dmOther(list)  { return list[0] == request.auth.uid ? list[1] : list[0]; }
+      // True if either user has blocked the other — blocks DMs in both directions.
+      function blockedPair(a, b) {
+        return exists(/databases/$(database)/documents/users/$(a)/blocked/$(b))
+            || exists(/databases/$(database)/documents/users/$(b)/blocked/$(a));
+      }
       allow read: if signedIn() && request.auth.uid in resource.data.participants;
       allow create: if signedIn()
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants.size() == 2
-        && keysOnly(['participants','participantNames','participantPhotos','lastMessage','lastAt','createdAt']);
+        && keysOnly(['participants','participantNames','participantPhotos','lastMessage','lastAt','createdAt'])
+        && !blockedPair(request.auth.uid, dmOther(request.resource.data.participants));
       allow update: if signedIn()
         && request.auth.uid in resource.data.participants
         && unchanged(['participants','createdAt']);
@@ -140,7 +147,8 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid in participants();
         allow create: if signedIn() && created('senderId')
           && request.auth.uid in participants()
-          && keysOnly(['senderId','text','createdAt']) && strMax('text', 4000);
+          && keysOnly(['senderId','text','createdAt']) && strMax('text', 4000)
+          && !blockedPair(request.auth.uid, dmOther(participants()));
         allow update, delete: if false;
       }
     }

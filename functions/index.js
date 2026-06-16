@@ -28,6 +28,7 @@ const RL = {
   comment:  { max: 80,  windowSec: 3600 },   // 80 comments / hour
   report:   { max: 25,  windowSec: 86400 },  // 25 reports / day
   follow:   { max: 250, windowSec: 3600 },   // 250 follows / hour
+  message:  { max: 120, windowSec: 3600 },   // 120 chat messages / hour
 };
 
 // Returns true if the action is within the user's limit (fail-open on error).
@@ -115,6 +116,36 @@ exports.onReportCreate = onDocumentCreated("reports/{id}", async (e) => {
   const d = e.data && e.data.data();
   if (!d) return;
   if (!(await allow(d.reporterId, "report"))) { await e.data.ref.delete().catch(() => {}); await flag(d.reporterId, "report", e.data.ref); }
+});
+
+/* ---- Chat: DM messages (rate-limit + notify recipient) ---- */
+exports.onDmMessageCreate = onDocumentCreated("threads/{tid}/messages/{mid}", async (e) => {
+  const m = e.data && e.data.data();
+  if (!m) return;
+  if (!(await allow(m.senderId, "message"))) {
+    await e.data.ref.delete().catch(() => {});
+    await flag(m.senderId, "message", e.data.ref);
+    return;
+  }
+  try {
+    const t = (await db.doc(`threads/${e.params.tid}`).get()).data();
+    if (!t) return;
+    const other = (t.participants || []).find((u) => u !== m.senderId);
+    if (!other) return;
+    const name = (t.participantNames && t.participantNames[m.senderId]) || "Someone";
+    await record(other, m.senderId, "message", `${name} sent you a message`, `/chat/${e.params.tid}`);
+    await notify(other, m.senderId, "message", name, (m.text || "").slice(0, 140), { link: `/chat/${e.params.tid}` });
+  } catch { /* best effort */ }
+});
+
+/* ---- Chat: tribe group messages (rate-limit) ---- */
+exports.onTribeMessageCreate = onDocumentCreated("tribes/{id}/messages/{mid}", async (e) => {
+  const m = e.data && e.data.data();
+  if (!m) return;
+  if (!(await allow(m.authorId, "message"))) {
+    await e.data.ref.delete().catch(() => {});
+    await flag(m.authorId, "message", e.data.ref);
+  }
 });
 
 /* ---- Posts: likes ---- */

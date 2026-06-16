@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   collection, doc, getDoc, setDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp,
 } from "firebase/firestore";
@@ -9,7 +9,7 @@ import { useAuth } from "./AuthContext.jsx";
 const MessagesContext = createContext(null);
 
 export function MessagesProvider({ children }) {
-  const { user, profile } = useAuth();
+  const { user, profile, blockedIds } = useAuth();
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,9 +28,16 @@ export function MessagesProvider({ children }) {
     );
   }, [user]);
 
-  // Ensure a 1:1 thread exists; returns its id.
+  // Hide conversations with people you've blocked.
+  const visibleThreads = useMemo(() => threads.filter((t) => {
+    const other = (t.participants || []).find((u) => u !== user?.uid);
+    return !(other && blockedIds?.has(other));
+  }), [threads, blockedIds, user]);
+
+  // Ensure a 1:1 thread exists; returns its id. Refuses if either side has blocked the other.
   const openThread = async (other) => {
     if (!user || !other?.uid) return null;
+    if (blockedIds?.has(other.uid)) throw new Error("You've blocked this person. Unblock them to message.");
     const tid = dmThreadId(user.uid, other.uid);
     const ref = doc(db, "threads", tid);
     const snap = await getDoc(ref);
@@ -49,7 +56,7 @@ export function MessagesProvider({ children }) {
   };
 
   return (
-    <MessagesContext.Provider value={{ threads, loading, openThread }}>
+    <MessagesContext.Provider value={{ threads: visibleThreads, loading, openThread }}>
       {children}
     </MessagesContext.Provider>
   );

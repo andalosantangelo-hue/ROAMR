@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp,
@@ -9,17 +9,19 @@ import { useTribes } from "../store/TribesContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import ChatThread from "../components/ChatThread.jsx";
 import JoinButton from "../components/JoinButton.jsx";
-import { Tribes as TribesIcon } from "../components/Icons.jsx";
+import { Tribes as TribesIcon, More } from "../components/Icons.jsx";
 
 const CAT_LABELS = { outdoor: "Outdoor", water: "Water", wheel: "Wheels", nature: "Nature", snow: "Snow" };
 
 export default function TribeDetail() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, blockedIds, reportContent } = useAuth();
   const { tribes, joinedIds, toggleMembership } = useTribes();
   const [tribe, setTribe] = useState(() => tribes.find((t) => t.id === id) || null);
   const [messages, setMessages] = useState([]);
+  const [menu, setMenu] = useState(false);
+  const [notice, setNotice] = useState("");
   const joined = joinedIds.has(id);
 
   useEffect(() => {
@@ -38,6 +40,12 @@ export default function TribeDetail() {
       (e) => console.warn("tribe messages:", e.message));
   }, [id, joined]);
 
+  // Hide messages from people you've blocked.
+  const shownMessages = useMemo(
+    () => messages.filter((m) => !(m.uid && blockedIds?.has(m.uid))),
+    [messages, blockedIds]
+  );
+
   const send = async (text) => {
     await addDoc(collection(db, "tribes", id, "messages"), {
       authorId: user.uid,
@@ -47,15 +55,33 @@ export default function TribeDetail() {
     });
   };
 
+  const reportChat = async () => {
+    setMenu(false);
+    try {
+      await reportContent({ targetType: "tribe-chat", targetId: id, targetOwnerId: tribe?.ownerId || null, reason: "harassment" });
+      setNotice("Reported. Our team will review this tribe's chat.");
+    } catch (e) { setNotice(e.message || "Could not report."); }
+  };
+
   const count = tribe?.memberCount ?? tribe?.members ?? 0;
   const cats = tribe?.categories || (tribe?.category ? [tribe.category] : []);
 
   return (
     <div className="h-full flex flex-col bg-white">
       <StatusBar />
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-black/5">
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-black/5 relative">
         <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
-        <h1 className="text-lg font-semibold text-brand-navy truncate">{tribe?.name || "Tribe"}</h1>
+        <h1 className="text-lg font-semibold text-brand-navy truncate flex-1">{tribe?.name || "Tribe"}</h1>
+        {joined && (
+          <button onClick={() => setMenu((v) => !v)} aria-label="More options" className="text-brand-navy/70 p-1">
+            <More className="w-5 h-5" />
+          </button>
+        )}
+        {menu && (
+          <div className="absolute right-3 top-12 z-20 bg-white rounded-xl shadow-card border border-black/5 overflow-hidden w-44">
+            <button onClick={reportChat} className="w-full text-left px-4 py-3 text-sm font-medium text-ink hover:bg-brand-tint">Report this chat</button>
+          </div>
+        )}
       </div>
 
       <div className="px-5 pt-4 pb-4 border-b border-black/5">
@@ -85,8 +111,11 @@ export default function TribeDetail() {
         {tribe?.description && <p className="text-ink/80 text-sm mt-3">{tribe.description}</p>}
       </div>
 
+      {notice && <p className="text-center text-brand-green text-[13px] py-2 px-4 bg-brand-tint">{notice}</p>}
+
       {joined ? (
-        <ChatThread messages={messages} meUid={user?.uid} onSend={send} showNames placeholder="Message the tribe…" />
+        <ChatThread messages={shownMessages} meUid={user?.uid} onSend={send} showNames
+          onAuthorClick={(m) => m.uid && nav(`/u/${m.uid}`)} placeholder="Message the tribe…" />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <span className="w-16 h-16 rounded-2xl bg-brand-tint text-brand-green grid place-items-center mb-4">

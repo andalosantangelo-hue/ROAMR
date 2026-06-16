@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Send } from "./Icons.jsx";
 
 // messages: [{ id, uid, name, photo, text, createdAt }]
-export default function ChatThread({ messages = [], meUid, onSend, placeholder = "Message…", showNames = false }) {
+export default function ChatThread({ messages = [], meUid, onSend, placeholder = "Message…", showNames = false, onAuthorClick }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
@@ -34,7 +34,11 @@ export default function ChatThread({ messages = [], meUid, onSend, placeholder =
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[78%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
                 {showNames && !mine && m.name && (
-                  <span className="text-[11px] text-muted mb-0.5 px-1">{m.name}</span>
+                  onAuthorClick ? (
+                    <button onClick={() => onAuthorClick(m)} className="text-[11px] text-brand-green font-semibold mb-0.5 px-1 text-left">{m.name}</button>
+                  ) : (
+                    <span className="text-[11px] text-muted mb-0.5 px-1">{m.name}</span>
+                  )
                 )}
                 <div className={`px-3.5 py-2 rounded-2xl text-[15px] leading-snug break-words ${
                   mine ? "bg-brand-green text-white rounded-br-md" : "bg-brand-tint text-ink rounded-bl-md"}`}>

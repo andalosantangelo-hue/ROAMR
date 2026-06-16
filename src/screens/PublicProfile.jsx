@@ -18,7 +18,7 @@ const INTEREST_LABELS = {
 export default function PublicProfile() {
   const { uid } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, blockedIds, unblockUser } = useAuth();
   const { openThread } = useMessages();
   const [p, setP] = useState(null);
   const [loadingP, setLoadingP] = useState(true);
@@ -26,6 +26,7 @@ export default function PublicProfile() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [opening, setOpening] = useState(false);
   const isMe = user && user.uid === uid;
+  const blocked = blockedIds?.has(uid);
 
   useEffect(() => {
     setLoadingP(true);
@@ -91,6 +92,11 @@ export default function PublicProfile() {
               <button onClick={() => nav("/edit-profile")}
                 className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5">
                 <Edit className="w-4 h-4" /> Edit
+              </button>
+            ) : blocked ? (
+              <button onClick={() => unblockUser(uid)}
+                className="rounded-full px-5 py-2 text-sm font-semibold bg-red-50 text-red-600 border border-red-200">
+                Unblock
               </button>
             ) : (
               <div className="flex items-center gap-2">
