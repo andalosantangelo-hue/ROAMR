@@ -19,10 +19,10 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','updatedAt',
-                     'interests','subInterests','skillLevels','bio','location','subscription','followingCount','followerCount','createdAt']);
+                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','bio','location','subscription','followingCount','followerCount','createdAt']);
       // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
-        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
         && unchanged(['uid','followerCount','followingCount','subscription','createdAt']);
       allow delete: if isUser(uid);
 

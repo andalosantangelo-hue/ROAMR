@@ -5,6 +5,7 @@ import { Hiking, Water, Bike, Nature, Snow, Check } from "../components/Icons.js
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
 import { titleCase } from "../lib/util.js";
+import { AVAILABILITY } from "../lib/profile.js";
 
 const ACTIVITIES = [
   { id: "outdoor", label: "Outdoor Adventures", Icon: Hiking, subs: ["Hiking", "Backpacking", "Climbing", "Camping", "Trail Running"] },
@@ -24,6 +25,10 @@ export default function Onboarding() {
   const [subs, setSubs] = useState([]);
   const [levels, setLevels] = useState({});
   const [busy, setBusy] = useState(false);
+  const [location, setLocation] = useState("");
+  const [availability, setAvailability] = useState([]);
+  const [adventure, setAdventure] = useState("");
+  const toggleAvail = (a) => setAvailability((s) => (s.includes(a) ? s.filter((x) => x !== a) : [...s, a]));
 
   useEffect(() => {
     const existing = profile?.displayName || user?.displayName;
@@ -48,7 +53,9 @@ export default function Onboarding() {
     try {
       const skillLevels = {};
       selected.forEach((id) => { skillLevels[id] = levels[id] || "Beginner"; });
-      await saveProfile({ displayName: titleCase(name), subInterests: subs, skillLevels });
+      const prompts = adventure.trim() ? [{ q: "My next adventure is\u2026", a: adventure.trim() }] : [];
+      await saveProfile({ displayName: titleCase(name), subInterests: subs, skillLevels,
+        location: location.trim(), availability, prompts });
       await saveInterests(selected);
     } catch { /* non-blocking */ }
     track("onboarding_complete", { count: selected.length });
@@ -124,6 +131,30 @@ export default function Onboarding() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 space-y-5">
+              <div>
+                <p className="text-sm font-semibold text-ink/80 mb-2">Home base</p>
+                <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Denver, CO"
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink/80 mb-2">When are you usually free?</p>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABILITY.map((a) => (
+                    <button key={a} type="button" onClick={() => toggleAvail(a)}
+                      className={`px-3.5 py-2 rounded-full text-sm font-semibold transition ${availability.includes(a) ? "bg-brand-green text-white" : "bg-brand-tint text-brand-navy"}`}>
+                      {a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink/80 mb-2">My next adventure is… <span className="text-muted font-normal">(optional)</span></p>
+                <input value={adventure} onChange={(e) => setAdventure(e.target.value)} maxLength={160} placeholder="e.g. A weekend in the Sawtooths"
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
+              </div>
             </div>
 
             <div className="mt-auto pt-8 pb-7">
