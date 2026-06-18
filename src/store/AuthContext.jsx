@@ -211,12 +211,39 @@ export function AuthProvider({ children }) {
     await deleteUser(u);
   };
 
+  // GDPR data portability — download everything we hold about you as JSON.
+  const exportMyData = async () => {
+    const u = auth.currentUser;
+    if (!u) return;
+    const uid = u.uid;
+    const dump = { exportedAt: new Date().toISOString(), account: { uid, email: u.email || null } };
+    const colToArr = async (q) => { const s = await getDocs(q); return s.docs.map((d) => ({ id: d.id, ...d.data() })); };
+    try {
+      dump.profile = (await getDoc(doc(db, "users", uid))).data() || null;
+      dump.private = (await getDoc(doc(db, "users", uid, "private", "data"))).data() || null;
+      for (const sub of ["following", "saves", "blocked", "notifications", "references", "reviews"]) {
+        dump[sub] = await colToArr(collection(db, "users", uid, sub));
+      }
+      dump.posts = await colToArr(query(collection(db, "posts"), where("authorId", "==", uid)));
+      dump.activities = await colToArr(query(collection(db, "activities"), where("authorId", "==", uid)));
+      dump.listings = await colToArr(query(collection(db, "listings"), where("sellerId", "==", uid)));
+      dump.tribes = await colToArr(query(collection(db, "tribes"), where("ownerId", "==", uid)));
+      dump.tripPlans = await colToArr(query(collection(db, "tripPlans"), where("ownerId", "==", uid)));
+    } catch (e) { console.warn("export:", e.message); }
+    const json = JSON.stringify(dump, (k, v) => (v && typeof v.toDate === "function" ? v.toDate().toISOString() : v), 2);
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `roamr-data-${uid}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <AuthContext.Provider value={{
       user, profile, blockedIds, loading,
       emailMethods, signInEmail, signUpEmail, googleSignIn, appleSignIn,
       resetPassword, logout, saveInterests, saveProfile, savePrivate,
-      reportContent, blockUser, unblockUser, deleteAccount, resendVerification, followingIds, toggleFollow,
+      reportContent, blockUser, unblockUser, deleteAccount, exportMyData, resendVerification, followingIds, toggleFollow,
       notifications, unreadCount, markNotifsRead,
     }}>
       {children}

@@ -19,11 +19,11 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','updatedAt',
-                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','bio','location','subscription','followingCount','followerCount','createdAt']);
+                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','bio','location','subscription','followingCount','followerCount','createdAt']);
       // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
-        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
-        && unchanged(['uid','followerCount','followingCount','subscription','createdAt']);
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
+        && unchanged(['uid','followerCount','followingCount','subscription','createdAt','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount']);
       allow delete: if isUser(uid);
 
       // Private profile data (email, phone, push tokens, prefs) — owner only.
@@ -51,6 +51,21 @@ service cloud.firestore {
         allow create, delete: if false; // server-only
       }
       match /followers/{fid} { allow read: if signedIn(); allow write: if false; }
+      // Vouches from people you've adventured with (one per voucher).
+      match /references/{fromUid} {
+        allow read: if signedIn();
+        allow create: if isUser(fromUid) && fromUid != uid && created('fromUid')
+          && keysOnly(['fromUid','fromName','fromPhoto','text','createdAt']) && strMax('text', 600);
+        allow delete: if isUser(fromUid);
+      }
+      // Two-way post-trip reviews (one per reviewer). Counters are server-maintained.
+      match /reviews/{reviewerUid} {
+        allow read: if signedIn();
+        allow create: if isUser(reviewerUid) && reviewerUid != uid && created('reviewerId')
+          && keysOnly(['reviewerId','reviewerName','reviewerPhoto','ratings','overall','text','tripId','visible','createdAt'])
+          && strMax('text', 1000);
+        allow update, delete: if isUser(reviewerUid);
+      }
     }
 
     match /posts/{postId} {
@@ -166,6 +181,23 @@ service cloud.firestore {
       allow create: if signedIn() && created('reporterId')
         && keysOnly(['reporterId','targetType','targetId','targetOwnerId','reason','note','status','createdAt']);
       allow read, update, delete: if false; // triage in console only
+    }
+
+    // Identity verification submissions — write-only for the owner; reviewed out-of-band.
+    match /verifications/{uid} {
+      allow read: if false;
+      allow create: if isUser(uid) && keysOnly(['uid','selfie','status','createdAt']);
+      allow update, delete: if false;
+    }
+
+    // Trip safety plans — readable by the owner and invited partners.
+    match /tripPlans/{id} {
+      allow read: if signedIn() && (owns('ownerId') || (request.auth.uid in resource.data.partners));
+      allow create: if signedIn() && created('ownerId')
+        && keysOnly(['ownerId','ownerName','objective','activity','area','startAt','expectedReturnAt','partners','emergencyContact','shareMedical','medical','lastKnownLocation','status','checkedInAt','escalatedAt','graceMins','createdAt'])
+        && strMax('objective', 200) && strMax('area', 500);
+      allow update: if owns('ownerId') && unchanged(['ownerId','createdAt']);
+      allow delete: if owns('ownerId');
     }
 
     // Server-only (Admin SDK / Cloud Functions). Clients can neither read nor write.

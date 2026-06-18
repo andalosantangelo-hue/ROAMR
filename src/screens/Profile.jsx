@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { Edit, Gear, Card, Help, Info, Comment, ChevronRight, Profile as UserIcon } from "../components/Icons.jsx";
+import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Profile as UserIcon } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { titleCase } from "../lib/util.js";
 
 const ITEMS = [
   { icon: Edit, title: "Edit Profile", sub: "Update personal info and picture", to: "/edit-profile" },
   { icon: Comment, title: "Messages", sub: "Your direct conversations", to: "/messages" },
+  { icon: Check, title: "Safety Center", sub: "Verification, trip plans, emergency info", to: "/safety" },
   { icon: Gear, title: "Account Settings", sub: "Manage account preferences", to: "/settings" },
   { icon: Card, title: "Membership", sub: "Change your plan and payment method", to: "/app/premium" },
   { icon: Help, title: "Help Center", sub: "Get help, guides, and contact support", to: "/help" },

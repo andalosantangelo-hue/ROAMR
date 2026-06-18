@@ -16,6 +16,8 @@ jobs:
       - run: npm ci
       - run: npm run lint --if-present
       - run: npm run test
+      - name: Coverage gate (core lib/components)
+        run: npm i -D @vitest/coverage-v8 --no-save && npx vitest run --coverage
       - run: npm run build
       - name: Dependency audit (high severity)
         run: npm audit --audit-level=high || true

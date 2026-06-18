@@ -1,7 +1,8 @@
 // ROAMR Cloud Functions (BACKEND-PLAN §9.B + counter integrity + abuse rate limiting).
 // Server-authoritative counters (tamper-proof) + push notifications + per-user rate limits.
 // Deploy: `firebase deploy --only functions` (Blaze plan).
-const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -241,4 +242,67 @@ exports.onFollowDelete = onDocumentDeleted("users/{uid}/following/{targetUid}", 
   const { uid, targetUid } = e.params;
   await bump(`users/${uid}`, "followingCount", -1);
   await bump(`users/${targetUid}`, "followerCount", -1);
+});
+
+/* ====================== TRUST & SAFETY ====================== */
+
+/* Vouches -> vouchCount */
+exports.onReferenceCreate = onDocumentCreated("users/{uid}/references/{fromUid}", async (e) => {
+  await bump(`users/${e.params.uid}`, "vouchCount", 1);
+  await record(e.params.uid, e.params.fromUid, "vouch", "Someone vouched for you", `/u/${e.params.uid}`);
+});
+exports.onReferenceDelete = onDocumentDeleted("users/{uid}/references/{fromUid}", async (e) =>
+  bump(`users/${e.params.uid}`, "vouchCount", -1));
+
+/* Reviews -> ratingAvg / ratingCount (incremental, transactional) */
+exports.onReviewCreate = onDocumentCreated("users/{uid}/reviews/{reviewerUid}", async (e) => {
+  const r = e.data.data() || {}; const overall = Number(r.overall) || 0;
+  const ref = db.doc(`users/${e.params.uid}`);
+  await db.runTransaction(async (tx) => {
+    const d = (await tx.get(ref)).data() || {};
+    const count = (d.ratingCount || 0) + 1;
+    const avg = ((d.ratingAvg || 0) * (d.ratingCount || 0) + overall) / count;
+    tx.set(ref, { ratingCount: count, ratingAvg: Math.round(avg * 100) / 100 }, { merge: true });
+  }).catch(() => {});
+  await record(e.params.uid, e.params.reviewerUid, "review", "You got a new partner review", `/u/${e.params.uid}`);
+});
+exports.onReviewDelete = onDocumentDeleted("users/{uid}/reviews/{reviewerUid}", async (e) => {
+  const r = e.data.data() || {}; const overall = Number(r.overall) || 0;
+  const ref = db.doc(`users/${e.params.uid}`);
+  await db.runTransaction(async (tx) => {
+    const d = (await tx.get(ref)).data() || {};
+    const count = Math.max(0, (d.ratingCount || 0) - 1);
+    const avg = count === 0 ? 0 : ((d.ratingAvg || 0) * (d.ratingCount || 0) - overall) / count;
+    tx.set(ref, { ratingCount: count, ratingAvg: Math.round(avg * 100) / 100 }, { merge: true });
+  }).catch(() => {});
+});
+
+/* Completed adventure -> bump adventuresCompleted for owner + partners when a trip is marked safe */
+exports.onTripPlanUpdate = onDocumentUpdated("tripPlans/{id}", async (e) => {
+  const before = e.data.before.data() || {}; const after = e.data.after.data() || {};
+  if (after.status === "safe" && before.status !== "safe") {
+    const uids = [after.ownerId, ...(after.partners || [])].filter(Boolean);
+    await Promise.all(uids.map((u) => bump(`users/${u}`, "adventuresCompleted", 1)));
+  }
+});
+
+/* THE BIG ONE — scheduled overdue check. ROAMR's first server cron.
+ * Every 15 min: any active trip past expected-return + grace with no check-in is flipped
+ * to "overdue" and the owner is alerted. SMS/email to an EXTERNAL emergency contact needs a
+ * provider (Twilio/SendGrid) — that wire-up is the only piece left; the escalation runs here. */
+exports.checkOverdueTrips = onSchedule("every 15 minutes", async () => {
+  const now = Date.now();
+  const snap = await db.collection("tripPlans").where("status", "==", "active").get();
+  for (const doc of snap.docs) {
+    const t = doc.data();
+    if (t.checkedInAt || t.escalatedAt) continue;
+    const due = t.expectedReturnAt && t.expectedReturnAt.toMillis ? t.expectedReturnAt.toMillis() : 0;
+    const grace = (t.graceMins || 60) * 60000;
+    if (due && now > due + grace) {
+      await doc.ref.update({ status: "overdue", escalatedAt: FieldValue.serverTimestamp() }).catch(() => {});
+      await record(t.ownerId, null, "overdue", `You're overdue from "${t.objective || "your trip"}". Check in, or we'll alert your contact.`, "/safety/trips");
+      await notify(t.ownerId, null, "overdue", "Trip overdue", "Check in now, or we'll alert your emergency contact.", { type: "trip", id: doc.id });
+      // TODO(provider): SMS/email t.emergencyContact with the plan + last-known location.
+    }
+  }
 });

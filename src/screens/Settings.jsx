@@ -7,7 +7,9 @@ import { ChevronRight, Info } from "../components/Icons.jsx";
 
 export default function Settings() {
   const nav = useNavigate();
-  const { user, profile, savePrivate, blockedIds, unblockUser, logout, deleteAccount } = useAuth();
+  const { user, profile, savePrivate, blockedIds, unblockUser, logout, deleteAccount, exportMyData } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const onExport = async () => { setExporting(true); try { await exportMyData(); } finally { setExporting(false); } };
   const prefs = profile?.notificationPrefs || { kudos: true, comments: true, activityJoin: true, tribeMember: true, newFollower: true };
   const togglePref = (k) => savePrivate({ notificationPrefs: { ...prefs, [k]: !prefs[k] } });
   const [pushMsg, setPushMsg] = useState("");
@@ -60,11 +62,16 @@ export default function Settings() {
           </a>
           <div className="flex items-center justify-between py-3.5 border-t border-black/5">
             <span className="font-semibold text-ink">Share analytics</span>
-            <button onClick={toggleAnalytics}
+            <button onClick={toggleAnalytics} role="switch" aria-checked={analyticsOn} aria-label="Share analytics"
               className={`w-11 h-6 rounded-full transition relative ${analyticsOn ? "bg-brand-green" : "bg-black/15"}`}>
               <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${analyticsOn ? "left-[22px]" : "left-0.5"}`} />
             </button>
           </div>
+          <button onClick={onExport} disabled={exporting} className="w-full text-left flex items-center gap-3 py-3.5 border-t border-black/5">
+            <Info className="w-5 h-5 text-brand-navy" />
+            <span className="flex-1 font-semibold text-ink">{exporting ? "Preparing\u2026" : "Download my data"}</span>
+            <ChevronRight className="w-5 h-5 text-muted" />
+          </button>
         </section>
 
         <section className="mb-7">
@@ -72,7 +79,7 @@ export default function Settings() {
           {Object.keys(PREF_LABELS).map((k) => (
             <div key={k} className="flex items-center justify-between py-2.5 border-b border-black/5">
               <span className="text-ink text-[15px]">{PREF_LABELS[k]}</span>
-              <button onClick={() => togglePref(k)}
+              <button onClick={() => togglePref(k)} role="switch" aria-checked={prefs[k] !== false} aria-label={PREF_LABELS[k]}
                 className={`w-11 h-6 rounded-full transition relative ${prefs[k] !== false ? "bg-brand-green" : "bg-black/15"}`}>
                 <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${prefs[k] !== false ? "left-[22px]" : "left-0.5"}`} />
               </button>
