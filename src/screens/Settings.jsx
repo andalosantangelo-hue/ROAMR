@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { registerPush } from "../lib/push.js";
 import StatusBar from "../components/StatusBar.jsx";
@@ -50,16 +50,21 @@ export default function Settings() {
       <div className="flex-1 overflow-y-auto no-scrollbar px-6 pt-2 pb-6">
         <section className="mb-7">
           <h2 className="text-sm font-bold text-ink/60 uppercase tracking-wide mb-2">Legal</h2>
-          <a href="https://roamr.app/privacy" target="_blank" rel="noreferrer" className="flex items-center gap-3 py-3.5 border-b border-black/5">
+          <Link to="/legal/privacy" className="flex items-center gap-3 py-3.5 border-b border-black/5">
             <Info className="w-5 h-5 text-brand-navy" />
             <span className="flex-1 font-semibold text-ink">Privacy Policy</span>
             <ChevronRight className="w-5 h-5 text-muted" />
-          </a>
-          <a href="https://roamr.app/terms" target="_blank" rel="noreferrer" className="flex items-center gap-3 py-3.5">
+          </Link>
+          <Link to="/legal/terms" className="flex items-center gap-3 py-3.5 border-b border-black/5">
             <Info className="w-5 h-5 text-brand-navy" />
             <span className="flex-1 font-semibold text-ink">Terms of Service</span>
             <ChevronRight className="w-5 h-5 text-muted" />
-          </a>
+          </Link>
+          <Link to="/legal/accessibility" className="flex items-center gap-3 py-3.5">
+            <Info className="w-5 h-5 text-brand-navy" />
+            <span className="flex-1 font-semibold text-ink">Accessibility</span>
+            <ChevronRight className="w-5 h-5 text-muted" />
+          </Link>
           <div className="flex items-center justify-between py-3.5 border-t border-black/5">
             <span className="font-semibold text-ink">Share analytics</span>
             <button onClick={toggleAnalytics} role="switch" aria-checked={analyticsOn} aria-label="Share analytics"

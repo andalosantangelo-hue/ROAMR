@@ -4,9 +4,9 @@ import Logo from "../components/Logo.jsx";
 import { ChevronRight, Info } from "../components/Icons.jsx";
 
 const LINKS = [
-  { title: "Terms of Service", url: "https://roamr.app/terms" },
-  { title: "Privacy Policy", url: "https://roamr.app/privacy" },
-  { title: "Accessibility", url: "https://roamr.app/accessibility" },
+  { title: "Terms of Service", to: "/legal/terms" },
+  { title: "Privacy Policy", to: "/legal/privacy" },
+  { title: "Accessibility", to: "/legal/accessibility" },
 ];
 
 export default function About() {
@@ -33,13 +33,12 @@ export default function About() {
 
         <h2 className="text-sm font-bold text-ink/60 uppercase tracking-wide mb-2">Legal</h2>
         <div className="divide-y divide-black/5">
-          {LINKS.map(({ title, url }) => (
-            <a key={title} href={url} target="_blank" rel="noreferrer"
-              className="flex items-center gap-3 py-3.5">
+          {LINKS.map(({ title, to }) => (
+            <button key={title} onClick={() => nav(to)} className="w-full flex items-center gap-3 py-3.5 text-left">
               <Info className="w-5 h-5 text-brand-navy" />
               <span className="flex-1 font-semibold text-ink">{title}</span>
               <ChevronRight className="w-5 h-5 text-muted" />
-            </a>
+            </button>
           ))}
         </div>
 

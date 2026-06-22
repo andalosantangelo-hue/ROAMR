@@ -45,12 +45,12 @@ export default function HelpCenter() {
           <ChevronRight className="w-5 h-5 text-muted" />
         </button>
 
-        <a href="mailto:support@roamr.app?subject=ROAMR%20Support"
+        <a href="mailto:admin@roamrapp.org?subject=ROAMR%20Support"
           className="w-full flex items-center gap-3 rounded-2xl border border-black/10 p-4 mb-6 text-left">
           <Info className="w-6 h-6 text-brand-navy shrink-0" />
           <div className="flex-1">
             <div className="font-semibold text-brand-navy">Contact Support</div>
-            <div className="text-ink/70 text-[13px]">support@roamr.app — we reply within a day</div>
+            <div className="text-ink/70 text-[13px]">admin@roamrapp.org — we reply within a day</div>
           </div>
           <ChevronRight className="w-5 h-5 text-muted" />
         </a>

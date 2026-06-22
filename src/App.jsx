@@ -36,6 +36,7 @@ import Waiver from "./screens/Waiver.jsx";
 import TripPlanForm from "./screens/TripPlanForm.jsx";
 import TripPlans from "./screens/TripPlans.jsx";
 import LeaveReview from "./screens/LeaveReview.jsx";
+import Legal from "./screens/Legal.jsx";
 import { TribesProvider } from "./store/TribesContext.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { PostsProvider } from "./store/PostsContext.jsx";
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/legal/:doc" element={<Legal />} />
         <Route path="/app" element={<RequireAuth><TabsLayout /></RequireAuth>}>
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<Home />} />

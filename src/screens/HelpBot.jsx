@@ -30,7 +30,7 @@ function reply(text) {
     if (score > bestScore) { bestScore = score; best = e; }
   }
   if (best && bestScore > 0) return best.a;
-  return "I'm the ROAMR Assistant — I can help with activities, tribes, messaging, gear, your profile, and staying safe. Try asking one of those, or email support@roamr.app and a human will help.";
+  return "I'm the ROAMR Assistant — I can help with activities, tribes, messaging, gear, your profile, and staying safe. Try asking one of those, or email admin@roamrapp.org and a human will help.";
 }
 
 export default function HelpBot() {

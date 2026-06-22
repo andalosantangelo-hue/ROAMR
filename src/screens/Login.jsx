@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
 import { Google, Apple } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
 
-const PRIVACY_URL = "https://roamr.app/privacy";
-const TERMS_URL = "https://roamr.app/terms";
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function Login() {
@@ -120,8 +118,8 @@ export default function Login() {
         <div className="mt-auto pb-7 pt-8 text-center">
           <p className="text-[13px] text-ink/70 leading-relaxed">
             By continuing, you agree to our{" "}
-            <a href={TERMS_URL} target="_blank" rel="noreferrer" className="text-brand-green font-medium">Terms of Service</a>{" "}and{" "}
-            <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="text-brand-green font-medium">Privacy Policy</a>.
+            <Link to="/legal/terms" className="text-brand-green font-medium">Terms of Service</Link>{" "}and{" "}
+            <Link to="/legal/privacy" className="text-brand-green font-medium">Privacy Policy</Link>.
           </p>
           <p className="text-[12px] text-muted mt-2">Version 1.0.0</p>
         </div>
