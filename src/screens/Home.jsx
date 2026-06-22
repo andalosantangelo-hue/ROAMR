@@ -1,54 +1,41 @@
-import { useState } from "react";
 import PostCard from "../components/PostCard.jsx";
 import { PostSkeleton } from "../components/Skeleton.jsx";
 import { usePosts } from "../store/PostsContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
+import { useFeedScope } from "../store/FeedScopeContext.jsx";
+import { applyScope, feedCtx } from "../lib/feed.js";
 import Discover from "../components/Discover.jsx";
 
-function FeedTab({ id, label, active, onSelect }) {
-  return (
-    <button onClick={() => onSelect(id)}
-      className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${
-        active === id ? "bg-brand-green text-white" : "text-brand-navy"}`}>
-      {label}
-    </button>
-  );
-}
+const EMPTY = {
+  following: { title: "Your following feed is quiet", body: "Follow explorers to see their adventures here." },
+  nearby: { title: "Nothing nearby yet", body: "Set your home base in your profile, or be the first to post here." },
+  foryou: { title: "Your feed's quiet", body: "Tap + to post your first adventure." },
+};
 
 export default function Home() {
   const { posts, loading } = usePosts();
-  const { user, followingIds } = useAuth();
-  const [tab, setTab] = useState("foryou");
-  const following = tab === "following";
+  const { user, profile, followingIds } = useAuth();
+  const { scope } = useFeedScope();
 
-  const visible = following
-    ? posts.filter((p) => followingIds.has(p.authorId) || p.authorId === user?.uid)
-    : posts;
-  const showDiscover = !following && followingIds.size < 5;
+  const ctx = feedCtx(profile, followingIds, user?.uid);
+  const visible = applyScope(posts, scope, ctx);
+  const empty = EMPTY[scope] || EMPTY.foryou;
+  // Surface Discover when the personalized/nearby feed is thin on follows.
+  const showDiscover = scope !== "following" && followingIds.size < 5 && visible.length > 0;
 
   return (
     <div className="px-4 pt-2 pb-6 space-y-4">
-      <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
-        <FeedTab id="foryou" label="For You" active={tab} onSelect={setTab} />
-        <FeedTab id="following" label="Following" active={tab} onSelect={setTab} />
-      </div>
-
       {showDiscover && <Discover />}
 
       {loading ? (
         [0, 1, 2].map((i) => <PostSkeleton key={i} />)
-      ) : following && visible.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="pt-6">
           <div className="text-center text-muted px-8 mb-5">
-            <p className="font-semibold text-brand-navy text-lg mb-1">Your following feed is quiet</p>
-            <p className="text-sm">Follow explorers to see their adventures here.</p>
+            <p className="font-semibold text-brand-navy text-lg mb-1">{empty.title}</p>
+            <p className="text-sm">{empty.body}</p>
           </div>
-          <Discover />
-        </div>
-      ) : visible.length === 0 ? (
-        <div className="text-center text-muted mt-16 px-8">
-          <p className="font-semibold text-brand-navy text-lg mb-1">Your feed&apos;s quiet</p>
-          <p className="text-sm">Tap + to post your first adventure.</p>
+          {scope !== "foryou" && <Discover />}
         </div>
       ) : (
         visible.map((p) => <PostCard key={p.id} post={p} />)

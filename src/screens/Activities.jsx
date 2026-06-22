@@ -4,14 +4,24 @@ import FilterSheet from "../components/FilterSheet.jsx";
 import ActivityCard from "../components/ActivityCard.jsx";
 import { PostSkeleton } from "../components/Skeleton.jsx";
 import { useActivities } from "../store/ActivitiesContext.jsx";
+import { useAuth } from "../store/AuthContext.jsx";
+import { useFeedScope } from "../store/FeedScopeContext.jsx";
+import { applyScope, feedCtx } from "../lib/feed.js";
 
 const SKILL_SECTION = [{
   key: "skill", title: "Skill level",
   options: [{ id: "Beginner", label: "Beginner" }, { id: "Intermediate", label: "Intermediate" }, { id: "Advanced", label: "Advanced" }],
 }];
 
+const SCOPE_EMPTY = {
+  following: "No activities from people you follow yet.",
+  nearby: "No activities near your home base yet.",
+};
+
 export default function Activities() {
   const { activities, loading } = useActivities();
+  const { user, profile, followingIds } = useAuth();
+  const { scope } = useFeedScope();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState({ location: "", skill: null });
   const [sheet, setSheet] = useState(false);
@@ -19,7 +29,9 @@ export default function Activities() {
   const loc = (filter.location || "").toLowerCase();
   const active = !!(filter.location || filter.skill);
 
-  const filtered = activities.filter((a) =>
+  const ctx = feedCtx(profile, followingIds, user?.uid);
+  const scoped = applyScope(activities, scope, ctx);
+  const filtered = scoped.filter((a) =>
     ((a.text || "").toLowerCase().includes(s) || (a.user || a.authorName || "").toLowerCase().includes(s)) &&
     (!filter.skill || a.skillLevel === filter.skill) &&
     (!loc || (a.location || "").toLowerCase().includes(loc)));
@@ -34,7 +46,8 @@ export default function Activities() {
           [0, 1, 2].map((i) => <PostSkeleton key={i} />)
         ) : filtered.length === 0 ? (
           (q || active) ? <p className="text-center text-muted text-sm mt-12">No activities match your filters.</p>
-            : <div className="text-center text-muted mt-16 px-8"><p className="font-semibold text-brand-navy text-lg mb-1">Nothing planned</p><p className="text-sm">Tap + to propose an adventure.</p></div>
+            : SCOPE_EMPTY[scope] ? <p className="text-center text-muted text-sm mt-12">{SCOPE_EMPTY[scope]}</p>
+              : <div className="text-center text-muted mt-16 px-8"><p className="font-semibold text-brand-navy text-lg mb-1">Nothing planned</p><p className="text-sm">Tap + to propose an adventure.</p></div>
         ) : filtered.map((a) => <ActivityCard key={a.id} item={a} />)}
       </div>
 

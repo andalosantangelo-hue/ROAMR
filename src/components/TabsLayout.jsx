@@ -4,6 +4,7 @@ import StatusBar from "./StatusBar.jsx";
 import TopBar from "./TopBar.jsx";
 import Fab from "./Fab.jsx";
 import VerifyBanner from "./VerifyBanner.jsx";
+import { FeedScopeProvider } from "../store/FeedScopeContext.jsx";
 
 const FEED_TABS = ["/app/home", "/app/activities", "/app/tribes"];
 const FAB_TABS = [...FEED_TABS, "/app/marketplace"];
@@ -23,15 +24,17 @@ export default function TabsLayout() {
   };
 
   return (
-    <div className={`relative flex flex-col h-full ${isFeed ? "bg-brand-tint" : "bg-white"}`}>
-      <StatusBar />
-      {isFeed && <TopBar />}
-      <VerifyBanner />
-      <div className="flex-1 overflow-y-auto no-scrollbar">
-        <Outlet />
+    <FeedScopeProvider>
+      <div className={`relative flex flex-col h-full ${isFeed ? "bg-brand-tint" : "bg-white"}`}>
+        <StatusBar />
+        {isFeed && <TopBar />}
+        <VerifyBanner />
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          <Outlet />
+        </div>
+        {showFab && <div className="absolute right-4 bottom-[92px]"><Fab onClick={onFab} /></div>}
+        <BottomNav />
       </div>
-      {showFab && <div className="absolute right-4 bottom-[92px]"><Fab onClick={onFab} /></div>}
-      <BottomNav />
-    </div>
+    </FeedScopeProvider>
   );
 }
