@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, increment,
+  collection, addDoc, onSnapshot, query, orderBy, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";

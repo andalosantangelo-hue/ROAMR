@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
-  collection, collectionGroup, addDoc, setDoc, deleteDoc, updateDoc, doc,
-  onSnapshot, query, orderBy, where, limit, serverTimestamp, increment,
+  collection, collectionGroup, addDoc, setDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, where, limit, serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase.js";
@@ -84,7 +84,6 @@ export function PostsProvider({ children }) {
     if (!isRemote) return;
     try {
       const lref = doc(db, "posts", id, "likes", user.uid);
-      const pref = doc(db, "posts", id);
       if (was) { await deleteDoc(lref); }            // likeCount maintained by Cloud Function
       else { await setDoc(lref, { uid: user.uid, createdAt: serverTimestamp() }); track("post_like"); }
     } catch (e) {
