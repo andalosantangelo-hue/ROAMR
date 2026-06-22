@@ -254,9 +254,12 @@ exports.onReferenceCreate = onDocumentCreated("users/{uid}/references/{fromUid}"
 exports.onReferenceDelete = onDocumentDeleted("users/{uid}/references/{fromUid}", async (e) =>
   bump(`users/${e.params.uid}`, "vouchCount", -1));
 
-/* Reviews -> ratingAvg / ratingCount (incremental, transactional) */
+/* Reviews -> ratingAvg / ratingCount (incremental, transactional).
+ * overall is clamped to [1,5] as defense-in-depth — rules already bound it, but the
+ * server must never let a crafted value skew a partner's trust score. */
+const clampRating = (v) => Math.min(5, Math.max(1, Number(v) || 1));
 exports.onReviewCreate = onDocumentCreated("users/{uid}/reviews/{reviewerUid}", async (e) => {
-  const r = e.data.data() || {}; const overall = Number(r.overall) || 0;
+  const r = e.data.data() || {}; const overall = clampRating(r.overall);
   const ref = db.doc(`users/${e.params.uid}`);
   await db.runTransaction(async (tx) => {
     const d = (await tx.get(ref)).data() || {};
@@ -267,7 +270,7 @@ exports.onReviewCreate = onDocumentCreated("users/{uid}/reviews/{reviewerUid}", 
   await record(e.params.uid, e.params.reviewerUid, "review", "You got a new partner review", `/u/${e.params.uid}`);
 });
 exports.onReviewDelete = onDocumentDeleted("users/{uid}/reviews/{reviewerUid}", async (e) => {
-  const r = e.data.data() || {}; const overall = Number(r.overall) || 0;
+  const r = e.data.data() || {}; const overall = clampRating(r.overall);
   const ref = db.doc(`users/${e.params.uid}`);
   await db.runTransaction(async (tx) => {
     const d = (await tx.get(ref)).data() || {};

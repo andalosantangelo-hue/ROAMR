@@ -46,13 +46,13 @@ export function TribesProvider({ children }) {
   const tribes = remote.length ? remote : (import.meta.env.DEV ? seed : []);
 
   const addTribe = async ({ name, file, categories = [], location = "", description = "" }) => {
+    const uid = auth.currentUser?.uid || null;
     let img = null;
-    if (file) {
+    if (file && uid) {
       const up = await compressImage(file);
-      const snap = await uploadBytes(ref(storage, `tribes/${Date.now()}-${up.name}`), up);
+      const snap = await uploadBytes(ref(storage, `tribes/${uid}/${Date.now()}-${up.name}`), up);
       img = await getDownloadURL(snap.ref);
     }
-    const uid = auth.currentUser?.uid || null;
     const docRef = await addDoc(collection(db, "tribes"), {
       name, img, categories: categories || [], location: location || "", description: description || "",
       memberCount: 0, ownerId: uid, createdAt: serverTimestamp(),

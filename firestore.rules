@@ -17,9 +17,21 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn();
+      // Trust/subscription/counter fields are server-maintained. On create they must
+      // be at safe defaults — otherwise a client could self-grant verified/premium/
+      // ratings/vouches by writing its own user doc directly via the SDK.
       allow create: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','updatedAt',
-                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','bio','location','subscription','followingCount','followerCount','createdAt']);
+                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','bio','location','subscription','followingCount','followerCount','createdAt'])
+        && request.resource.data.get('verified', false) == false
+        && request.resource.data.get('verifiedTier', null) == null
+        && request.resource.data.get('adventuresCompleted', 0) == 0
+        && request.resource.data.get('ratingAvg', 0) == 0
+        && request.resource.data.get('ratingCount', 0) == 0
+        && request.resource.data.get('vouchCount', 0) == 0
+        && request.resource.data.get('followerCount', 0) == 0
+        && request.resource.data.get('followingCount', 0) == 0
+        && request.resource.data.get('subscription', {'tier':'basic'}).tier == 'basic';
       // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
@@ -63,8 +75,13 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create: if isUser(reviewerUid) && reviewerUid != uid && created('reviewerId')
           && keysOnly(['reviewerId','reviewerName','reviewerPhoto','ratings','overall','text','tripId','visible','createdAt'])
-          && strMax('text', 1000);
-        allow update, delete: if isUser(reviewerUid);
+          && strMax('text', 1000)
+          && request.resource.data.overall is number
+          && request.resource.data.overall >= 1 && request.resource.data.overall <= 5;
+        // overall/ratings are immutable post-create so the server-maintained ratingAvg
+        // (recomputed only on create/delete) can't drift out of sync via edits.
+        allow update: if isUser(reviewerUid) && unchanged(['reviewerId','overall','ratings','tripId','createdAt']);
+        allow delete: if isUser(reviewerUid);
       }
     }
 
@@ -184,19 +201,30 @@ service cloud.firestore {
     }
 
     // Identity verification submissions — write-only for the owner; reviewed out-of-band.
+    // status is forced to 'pending' so a user can't submit themselves pre-'approved';
+    // selfie is a Storage download URL, capped to block oversized payloads.
     match /verifications/{uid} {
       allow read: if false;
-      allow create: if isUser(uid) && keysOnly(['uid','selfie','status','createdAt']);
+      allow create: if isUser(uid) && keysOnly(['uid','selfie','status','createdAt'])
+        && request.resource.data.status == 'pending' && strMax('selfie', 2000);
       allow update, delete: if false;
     }
 
     // Trip safety plans — readable by the owner and invited partners.
+    // Reads return the WHOLE doc, so the shareMedical toggle can't gate the medical
+    // field at read time. Instead we enforce the invariant at write time: medical
+    // must be null unless the owner opted in (shareMedical == true). That way an
+    // invited partner can only ever see medical the owner explicitly chose to share.
     match /tripPlans/{id} {
+      function medicalOk() {
+        return request.resource.data.get('shareMedical', false) == true
+            || request.resource.data.get('medical', null) == null;
+      }
       allow read: if signedIn() && (owns('ownerId') || (request.auth.uid in resource.data.partners));
       allow create: if signedIn() && created('ownerId')
         && keysOnly(['ownerId','ownerName','objective','activity','area','startAt','expectedReturnAt','partners','emergencyContact','shareMedical','medical','lastKnownLocation','status','checkedInAt','escalatedAt','graceMins','createdAt'])
-        && strMax('objective', 200) && strMax('area', 500);
-      allow update: if owns('ownerId') && unchanged(['ownerId','createdAt']);
+        && strMax('objective', 200) && strMax('area', 500) && medicalOk();
+      allow update: if owns('ownerId') && unchanged(['ownerId','createdAt']) && medicalOk();
       allow delete: if owns('ownerId');
     }
 
