@@ -16,6 +16,7 @@
     "test:rules": "firebase emulators:exec --only firestore \"vitest run test/rules.test.js\""
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.3.4",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/cli": "^8.3.4",

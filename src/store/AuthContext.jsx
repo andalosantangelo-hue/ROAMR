@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signInWithPopup, GoogleAuthProvider, OAuthProvider, signOut, sendPasswordResetEmail,
+  signInWithPopup, signInWithCredential, GoogleAuthProvider, OAuthProvider, signOut, sendPasswordResetEmail,
   fetchSignInMethodsForEmail, deleteUser, sendEmailVerification,
 } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
   doc, getDoc, setDoc, deleteDoc, addDoc, collection, collectionGroup, getDocs, query, where,
   onSnapshot, orderBy, limit, serverTimestamp,
@@ -137,8 +139,26 @@ export function AuthProvider({ children }) {
     return afterAuth(cred);
   };
   const resendVerification = () => auth.currentUser ? sendEmailVerification(auth.currentUser) : Promise.resolve();
-  const googleSignIn = async () => afterAuth(await signInWithPopup(auth, new GoogleAuthProvider()));
+  const isNative = Capacitor.isNativePlatform();
+
+  const googleSignIn = async () => {
+    if (isNative) {
+      // Native (Capacitor): plugin shows the native Google picker; we bridge the
+      // returned OAuth credential into the JS SDK so it owns the session
+      // (capacitor.config → FirebaseAuthentication.skipNativeAuth = true).
+      const res = await FirebaseAuthentication.signInWithGoogle();
+      const cred = GoogleAuthProvider.credential(res.credential?.idToken, res.credential?.accessToken);
+      return afterAuth(await signInWithCredential(auth, cred));
+    }
+    return afterAuth(await signInWithPopup(auth, new GoogleAuthProvider()));
+  };
   const appleSignIn = async () => {
+    if (isNative) {
+      const res = await FirebaseAuthentication.signInWithApple();
+      const provider = new OAuthProvider("apple.com");
+      const cred = provider.credential({ idToken: res.credential?.idToken, rawNonce: res.credential?.nonce });
+      return afterAuth(await signInWithCredential(auth, cred));
+    }
     const p = new OAuthProvider("apple.com"); p.addScope("email"); p.addScope("name");
     return afterAuth(await signInWithPopup(auth, p));
   };
