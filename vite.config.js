@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
-    exclude: ['node_modules/**', 'dist/**', 'test/rules.test.js'], // rules tests run via test:rules (emulator)
+    exclude: ['node_modules/**', 'dist/**', 'functions/**', 'test/rules.test.js'], // rules tests run via test:rules (emulator)
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

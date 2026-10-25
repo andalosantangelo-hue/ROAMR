@@ -22,13 +22,15 @@ export function ActivitiesProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Rules require sign-in to read; (re)subscribe once auth resolves / user changes.
+    if (!user) return undefined;
     const q = query(collection(db, "activities"), orderBy("createdAt", "desc"), limit(20));
     return onSnapshot(
       q,
       (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (err) => { console.warn("Firestore activities:", err.message); setLoading(false); }
     );
-  }, []);
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) { setJoinedIds(new Set()); setLikedIds(new Set()); return; }
@@ -48,7 +50,7 @@ export function ActivitiesProvider({ children }) {
   const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const activities = base.filter((a) => !blockedIds.has(a.authorId));
 
-  const addActivity = async ({ text, location = "", when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
+  const addActivity = async ({ text, location = "", geo = null, when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
     if (!user) return;
     let photo = null;
     if (file) {
@@ -61,7 +63,7 @@ export function ActivitiesProvider({ children }) {
       authorName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
       text, photo,
-      location: location || "", when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
+      location: location || "", geo: geo || null, when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
       attendeeCount: 0, recentAttendees: [], likeCount: 0, commentCount: 0,
       createdAt: serverTimestamp(),
     });

@@ -1,9 +1,9 @@
 import { initializeApp } from "firebase/app";
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator,
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Firebase web config is safe to ship in client code.
@@ -38,6 +38,15 @@ export const db = initializeFirestore(app, {
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+
+// Local dev against the Firebase emulators: `VITE_USE_EMULATORS=1 npm run dev`
+// with `npx firebase emulators:start --only auth,firestore,storage` running.
+// Never active in production builds.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
+}
 
 const analyticsConsent = typeof localStorage !== "undefined" && localStorage.getItem("roamr_analytics_consent") === "yes";
 isSupported().then((ok) => { if (ok && analyticsConsent) getAnalytics(app); }).catch(() => {});

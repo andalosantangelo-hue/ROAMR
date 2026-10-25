@@ -17,10 +17,12 @@ export function ListingsProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Rules require sign-in to read; (re)subscribe once auth resolves / user changes.
+    if (!user) return undefined;
     const q = query(collection(db, "listings"), where("status", "==", "active"), orderBy("createdAt", "desc"), limit(30));
     return onSnapshot(q, (snap) => { setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (e) => { console.warn("listings:", e.message); setLoading(false); });
-  }, []);
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addListing = async ({ title, description, price, type, category = "Other", files }) => {
     if (!user) return null;
