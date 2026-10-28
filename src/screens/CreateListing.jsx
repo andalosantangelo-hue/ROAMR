@@ -36,7 +36,7 @@ export default function CreateListing() {
     setBusy(true); setError("");
     try {
       const id = await addListing({ title: title.trim(), description: desc.trim(), price, type, category, files });
-      nav(id ? `/listing/${id}` : "/app/marketplace");
+      nav(id ? `/listing/${id}` : "/app/marketplace", { replace: true });
     } catch (e) { setError(friendlyError(e, "Your listing couldn't be posted. Please try again.")); setBusy(false); }
   };
 

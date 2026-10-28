@@ -45,7 +45,7 @@ export default function ComposeActivity() {
     setBusy(true); setError("");
     try {
       await addActivity({ text: text.trim(), location: location.trim(), when, skillLevel: skill, dmOpen, file });
-      nav("/app/activities");
+      nav("/app/activities", { replace: true }); // Back must not return to the emptied form
     } catch (e) { setError(friendlyError(e, "Your activity couldn't be posted. Please try again.")); setBusy(false); }
   };
 
@@ -66,8 +66,8 @@ export default function ComposeActivity() {
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
         <div className="flex gap-2">
           <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="e.g. Mount Batulao, Nasugbu"
-            className="flex-1 rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
-          <button type="button" onClick={useMyLocation} className="shrink-0 rounded-xl bg-brand-tint text-brand-navy text-[13px] font-semibold px-3">Use my location</button>
+            className="flex-1 min-w-0 rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
+          <button type="button" onClick={useMyLocation} className="shrink-0 rounded-xl bg-brand-tint text-brand-navy text-[13px] font-semibold px-3 whitespace-nowrap">Use my location</button>
         </div>
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Date & Time</label>

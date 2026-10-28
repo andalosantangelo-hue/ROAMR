@@ -6,7 +6,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
-import { compressImage } from "../lib/image.js";
+import { compressImage, writeOrQueue, requireOnlineForPhotos } from "../lib/image.js";
 import { toggleSet, isDemoId } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -55,13 +55,14 @@ export function ActivitiesProvider({ children }) {
 
   const addActivity = async ({ text, location = "", when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
     if (!user) return;
+    requireOnlineForPhotos(!!file);
     let photo = null;
     if (file) {
       const up = await compressImage(file);
       const snap = await uploadBytes(ref(storage, `activities/${user.uid}/${Date.now()}-${up.name}`), up);
       photo = await getDownloadURL(snap.ref);
     }
-    await addDoc(collection(db, "activities"), {
+    await writeOrQueue(addDoc(collection(db, "activities"), {
       authorId: user.uid,
       authorName: (profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer")).slice(0, 40),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
@@ -69,7 +70,7 @@ export function ActivitiesProvider({ children }) {
       location: location || "", when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
       attendeeCount: 0, recentAttendees: [], likeCount: 0, commentCount: 0,
       createdAt: serverTimestamp(),
-    });
+    }));
     tapSuccess();
     track("create_success", { type: "activity" });
   };

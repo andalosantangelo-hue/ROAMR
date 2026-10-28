@@ -6,7 +6,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
-import { compressImage } from "../lib/image.js";
+import { compressImage, writeOrQueue, requireOnlineForPhotos } from "../lib/image.js";
 import { toggleSet, isDemoId } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -65,19 +65,20 @@ export function PostsProvider({ children }) {
 
   const addPost = async ({ title, location, rating, file }) => {
     if (!user) return;
+    requireOnlineForPhotos(!!file);
     let photo = null;
     if (file) {
       const up = await compressImage(file);
       const snap = await uploadBytes(ref(storage, `posts/${user.uid}/${Date.now()}-${up.name}`), up);
       photo = await getDownloadURL(snap.ref);
     }
-    await addDoc(collection(db, "posts"), {
+    await writeOrQueue(addDoc(collection(db, "posts"), {
       authorId: user.uid,
       authorName: (profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer")).slice(0, 40),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
       title, location: location || "", photo, rating: rating || 0,
       likeCount: 0, commentCount: 0, createdAt: serverTimestamp(),
-    });
+    }));
     tapSuccess();
     track("create_success", { type: "post" });
   };

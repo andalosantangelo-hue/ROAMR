@@ -155,7 +155,8 @@ export default function PublicProfile() {
             {(p?.vouchCount > 0) && <span className="text-ink/80 font-medium">👍 {p.vouchCount} vouches</span>}
           </div>
 
-          <div className="flex items-center justify-between">
+          {/* Wraps on narrow phones: counts + Follow + Message didn't fit at 320–390px and pushed the page sideways. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-6">
               <div><span className="font-bold text-brand-navy">{p?.followerCount ?? 0}</span> <span className="text-muted text-sm">followers</span></div>
               <div><span className="font-bold text-brand-navy">{p?.followingCount ?? 0}</span> <span className="text-muted text-sm">following</span></div>

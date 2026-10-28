@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compressImage, friendlyError, ImageUploadError, MAX_INPUT_BYTES } from "./image.js";
+import { compressImage, friendlyError, ImageUploadError, MAX_INPUT_BYTES, writeOrQueue, requireOnlineForPhotos } from "./image.js";
 
 describe("compressImage guards", () => {
   it("returns null/undefined unchanged", async () => {
@@ -35,5 +35,21 @@ describe("friendlyError", () => {
   });
   it("falls back to the caller's message", () => {
     expect(friendlyError(new Error("weird"), "Couldn't save.")).toBe("Couldn't save.");
+  });
+});
+
+describe("offline writes", () => {
+  const setOnline = (v) => Object.defineProperty(navigator, "onLine", { value: v, configurable: true });
+  it("doesn't wait for the server when offline (the write is queued)", async () => {
+    setOnline(false);
+    const never = new Promise(() => {});
+    await expect(writeOrQueue(never)).resolves.toEqual({ queued: true });
+    expect(() => requireOnlineForPhotos(true)).toThrow(/offline/);
+    expect(() => requireOnlineForPhotos(false)).not.toThrow();
+    setOnline(true);
+  });
+  it("waits for the server when online", async () => {
+    setOnline(true);
+    await expect(writeOrQueue(Promise.resolve())).resolves.toEqual({ queued: false });
   });
 });

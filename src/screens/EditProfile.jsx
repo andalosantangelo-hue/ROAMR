@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
-import { compressImage, friendlyError } from "../lib/image.js";
+import { compressImage, friendlyError, requireOnlineForPhotos } from "../lib/image.js";
 import { titleCase } from "../lib/util.js";
 import * as P from "../lib/profile.js";
 import StatusBar from "../components/StatusBar.jsx";
@@ -147,6 +147,24 @@ function EditProfileForm() {
   const comp = P.completeness(draft);
   const picked = P.ACTIVITIES.filter((a) => f.interests.includes(a.id));
 
+  const toPayload = (form, urls, prs) => ({
+    displayName: titleCase(form.name), bio: form.bio.trim().slice(0, 300), location: form.location.trim().slice(0, 80),
+    photos: urls, photoURL: urls[0] || null,
+    languages: form.languages, pets: form.pets,
+    interests: form.interests, skillLevels: form.skillLevels, experience: form.experience,
+    terrain: form.terrain, intensity: form.intensity, pace: form.pace, risk: form.risk, type2: form.type2,
+    tripDuration: form.tripDuration, planning: form.planning, fitness: form.fitness, trainingFor: form.trainingFor.trim(),
+    availability: form.availability, seasons: form.seasons, leadTime: form.leadTime, willTravel: form.willTravel, style: form.style,
+    lookingFor: form.lookingFor, partnerWants: form.partnerWants, dealbreakers: form.dealbreakers,
+    certifications: form.certifications, gearShare: form.gearShare,
+    bucketList: form.bucketList.split("\n").map((x) => x.trim().slice(0, 120)).filter(Boolean).slice(0, 12),
+    recentTrips: form.recentTrips.trim(),
+    prompts: prs.filter((p) => p.a && p.a.trim()).map((p) => ({ q: p.q, a: p.a.trim() })),
+  });
+  // What the form held when it opened. Saving sends only the fields changed since then,
+  // so a form left open on a second phone can't overwrite edits saved on the first.
+  const [initial] = useState(() => toPayload(f, initPhotos.map((p) => p.url), prompts));
+
   const save = async () => {
     const name = titleCase(f.name);
     if (name.length < 2 || name.length > 40) { setError("Your name needs to be between 2 and 40 characters."); return; }
@@ -155,6 +173,7 @@ function EditProfileForm() {
     if (!f.interests.length) { setError("Pick at least one activity you're into."); return; }
     setBusy(true); setError("");
     try {
+      requireOnlineForPhotos(photos.some((ph) => ph.file));
       const uid = auth.currentUser.uid;
       const urls = [];
       for (const ph of photos) {
@@ -164,20 +183,9 @@ function EditProfileForm() {
           urls.push(await getDownloadURL(snap.ref));
         } else if (ph.url) { urls.push(ph.url); }
       }
-      await saveProfile({
-        displayName: name, bio: f.bio.trim().slice(0, 300), location: f.location.trim().slice(0, 80),
-        photos: urls, photoURL: urls[0] || null,
-        languages: f.languages, pets: f.pets,
-        interests: f.interests, skillLevels: f.skillLevels, experience: f.experience,
-        terrain: f.terrain, intensity: f.intensity, pace: f.pace, risk: f.risk, type2: f.type2,
-        tripDuration: f.tripDuration, planning: f.planning, fitness: f.fitness, trainingFor: f.trainingFor.trim(),
-        availability: f.availability, seasons: f.seasons, leadTime: f.leadTime, willTravel: f.willTravel, style: f.style,
-        lookingFor: f.lookingFor, partnerWants: f.partnerWants, dealbreakers: f.dealbreakers,
-        certifications: f.certifications, gearShare: f.gearShare,
-        bucketList: f.bucketList.split("\n").map((x) => x.trim().slice(0, 120)).filter(Boolean).slice(0, 12),
-        recentTrips: f.recentTrips.trim(),
-        prompts: prompts.filter((p) => p.a && p.a.trim()).map((p) => ({ q: p.q, a: p.a.trim() })),
-      });
+      const next = toPayload(f, urls, prompts);
+      const changed = Object.fromEntries(Object.entries(next).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(initial[k])));
+      if (Object.keys(changed).length) await saveProfile(changed);
       nav(-1);
     } catch (e) { setError(friendlyError(e, "Your profile couldn't be saved. Please try again.")); setBusy(false); }
   };

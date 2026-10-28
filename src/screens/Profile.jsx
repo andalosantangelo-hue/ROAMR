@@ -27,7 +27,7 @@ export default function Profile() {
   return (
     <div className="px-6 pt-8 pb-6 bg-white min-h-full">
       <div className="flex flex-col items-center mb-8">
-        <button onClick={() => user && nav(`/u/${user.uid}`)} aria-label="View my profile" className="flex flex-col items-center">
+        <button onClick={() => user && nav(`/u/${user.uid}`)} aria-label="View my profile" className="flex flex-col items-center w-full min-w-0">
           {photo ? (
             <img src={photo} alt="" className="w-28 h-28 rounded-full object-cover" />
           ) : (
@@ -35,8 +35,8 @@ export default function Profile() {
               <UserIcon className="w-14 h-14" />
             </span>
           )}
-          <h2 className="text-2xl font-extrabold text-brand-navy mt-4">{name}</h2>
-          {email && <p className="text-muted text-[15px]">{email}</p>}
+          <h2 className="text-2xl font-extrabold text-brand-navy mt-4 text-center break-words max-w-full">{name}</h2>
+          {email && <p className="text-muted text-[15px] text-center break-all max-w-full">{email}</p>}
           <span className="mt-2 text-brand-green text-[13px] font-semibold">View My Profile</span>
         </button>
       </div>

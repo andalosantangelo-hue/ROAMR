@@ -5,7 +5,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase.js";
 import { tapSuccess } from "../lib/haptics.js";
-import { compressImage } from "../lib/image.js";
+import { compressImage, requireOnlineForPhotos } from "../lib/image.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
 
@@ -41,6 +41,7 @@ export function ListingsProvider({ children }) {
   // user's retry created a duplicate.
   const addListing = async ({ title, description, price, type, category = "Other", files }) => {
     if (!user) return null;
+    requireOnlineForPhotos((files || []).length > 0);
     const docRef = doc(collection(db, "listings"));
     const urls = [];
     for (const f of files || []) {

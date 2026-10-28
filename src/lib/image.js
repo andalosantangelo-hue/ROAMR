@@ -62,3 +62,20 @@ export function friendlyError(e, fallback = "Something went wrong. Please try ag
   }
   return fallback;
 }
+
+export const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+
+// Photos can't be uploaded offline; say so instead of leaving "Posting…" spinning.
+export function requireOnlineForPhotos(hasPhotos) {
+  if (hasPhotos && isOffline()) {
+    throw new ImageUploadError("You're offline. Photos need a connection, so try again when you're back online.");
+  }
+}
+
+// Firestore resolves a write only once the server confirms it. Offline, the write is
+// queued and syncs on reconnect, but awaiting it left "Posting…" spinning forever.
+export async function writeOrQueue(write) {
+  if (isOffline()) { write.catch((e) => console.warn("queued write failed:", e.message)); return { queued: true }; }
+  await write;
+  return { queued: false };
+}

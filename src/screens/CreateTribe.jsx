@@ -33,7 +33,7 @@ export default function CreateTribe() {
     setBusy(true); setError("");
     try {
       await addTribe({ name: name.trim(), file, categories, location: location.trim(), description: description.trim() });
-      nav("/app/tribes");
+      nav("/app/tribes", { replace: true });
     } catch (e) {
       setError(friendlyError(e, "Your tribe couldn't be created. Please try again."));
       setBusy(false);

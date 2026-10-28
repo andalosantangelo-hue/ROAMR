@@ -6,7 +6,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
-import { compressImage } from "../lib/image.js";
+import { compressImage, requireOnlineForPhotos } from "../lib/image.js";
 import { toggleSet, isDemoId } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -52,6 +52,7 @@ export function TribesProvider({ children }) {
 
   const addTribe = async ({ name, file, categories = [], location = "", description = "" }) => {
     const owner = auth.currentUser?.uid || null;
+    requireOnlineForPhotos(!!file);
     let img = null;
     if (file && owner) {
       const up = await compressImage(file);

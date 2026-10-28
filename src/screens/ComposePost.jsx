@@ -23,7 +23,7 @@ export default function ComposePost() {
   const submit = async () => {
     if (!canPost) return;
     setBusy(true); setError("");
-    try { await addPost({ title: title.trim(), location: location.trim(), rating, file }); nav("/app/home"); }
+    try { await addPost({ title: title.trim(), location: location.trim(), rating, file }); nav("/app/home", { replace: true }); }
     catch (e) { setError(friendlyError(e, "Your post couldn't be shared. Please try again.")); setBusy(false); }
   };
 
