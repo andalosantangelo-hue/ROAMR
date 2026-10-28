@@ -1,5 +1,5 @@
 import PostCard from "../components/PostCard.jsx";
-import { PostSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, PostCardSkeleton } from "../components/skeletons";
 import { usePosts } from "../store/PostsContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
@@ -28,7 +28,9 @@ export default function Home() {
       {showDiscover && <Discover />}
 
       {loading ? (
-        [0, 1, 2].map((i) => <PostSkeleton key={i} />)
+        <SkeletonRegion label="Loading posts" className="space-y-4">
+          {[0, 1, 2].map((i) => <PostCardSkeleton key={i} />)}
+        </SkeletonRegion>
       ) : visible.length === 0 ? (
         <div className="pt-6">
           <div className="text-center text-muted px-8 mb-5">

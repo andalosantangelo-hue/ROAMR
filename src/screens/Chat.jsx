@@ -8,13 +8,14 @@ import { useAuth } from "../store/AuthContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import ChatThread from "../components/ChatThread.jsx";
 import { Profile as UserIcon, More } from "../components/Icons.jsx";
+import { SkeletonCircle, SkeletonLine } from "../components/skeletons";
 
 export default function Chat() {
   const { threadId } = useParams();
   const nav = useNavigate();
   const { user, reportContent, blockUser } = useAuth();
-  const [meta, setMeta] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [meta, setMeta] = useState(undefined); // undefined = loading, null = missing
+  const [messages, setMessages] = useState(null); // null until the first snapshot
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -29,7 +30,7 @@ export default function Chat() {
     const q = query(collection(db, "threads", threadId, "messages"), orderBy("createdAt", "asc"), limitToLast(100));
     return onSnapshot(q,
       (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, uid: d.data().senderId, text: d.data().text, createdAt: d.data().createdAt }))),
-      (e) => console.warn("dm messages:", e.message));
+      (e) => { console.warn("dm messages:", e.message); setMessages([]); });
   }, [threadId]);
 
   const otherUid = meta?.participants?.find((u) => u !== user?.uid);
@@ -62,14 +63,16 @@ export default function Chat() {
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-black/5 relative">
         <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <button onClick={() => otherUid && nav(`/u/${otherUid}`)} className="flex items-center gap-2.5 min-w-0 flex-1">
-          {otherPhoto ? (
+          {meta === undefined ? (
+            <span role="status" aria-busy="true" aria-label="Loading conversation" className="flex items-center gap-2.5"><SkeletonCircle className="w-9 h-9" /><SkeletonLine box="h-6" bar="h-3" className="w-28" /></span>
+          ) : otherPhoto ? (
             <img src={otherPhoto} alt="" className="w-9 h-9 rounded-full object-cover" />
           ) : (
             <span className="w-9 h-9 rounded-full bg-brand-navy text-brand-greenBright grid place-items-center">
               <UserIcon className="w-5 h-5" />
             </span>
           )}
-          <span className="font-semibold text-brand-navy truncate">{otherName}</span>
+          {meta !== undefined && <span className="font-semibold text-brand-navy truncate">{otherName}</span>}
         </button>
         <button onClick={() => setMenu((v) => !v)} aria-label="More options" className="text-brand-navy/70 p-1">
           <More className="w-5 h-5" />
@@ -82,7 +85,7 @@ export default function Chat() {
         )}
       </div>
       {notice && <p className="text-center text-brand-green text-[13px] py-2 px-4 bg-brand-tint">{notice}</p>}
-      <ChatThread messages={messages} meUid={user?.uid} onSend={send} placeholder={`Message ${otherName}…`} />
+      <ChatThread messages={messages || []} loading={messages === null} meUid={user?.uid} onSend={send} placeholder={`Message ${otherName}…`} />
     </div>
   );
 }

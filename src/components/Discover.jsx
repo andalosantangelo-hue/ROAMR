@@ -8,12 +8,13 @@ import FollowButton from "./FollowButton.jsx";
 import JoinButton from "./JoinButton.jsx";
 import { initials } from "../lib/util.js";
 import { Tribes as TribesIcon } from "./Icons.jsx";
+import { SkeletonRegion, PeopleStripSkeleton } from "./skeletons";
 
 export default function Discover() {
   const nav = useNavigate();
   const { user, profile, followingIds, blockedIds } = useAuth();
   const { tribes, joinedIds, toggleMembership } = useTribes();
-  const [people, setPeople] = useState([]);
+  const [people, setPeople] = useState(null); // null until the first fetch (skeleton strip)
 
   useEffect(() => {
     if (!user) return;
@@ -24,7 +25,7 @@ export default function Discover() {
           .filter((u) => u.uid !== user.uid && !followingIds.has(u.uid) && !blockedIds.has(u.uid));
         setPeople(list.slice(0, 8));
       })
-      .catch(() => {});
+      .catch(() => setPeople((cur) => cur || []));
   }, [user, followingIds, blockedIds]);
 
   const interests = profile?.interests || [];
@@ -33,7 +34,7 @@ export default function Discover() {
     .sort((a, b) => (interests.includes(b.category) ? 1 : 0) - (interests.includes(a.category) ? 1 : 0))
     .slice(0, 6);
 
-  if (suggestedTribes.length === 0 && people.length === 0) return null;
+  if (suggestedTribes.length === 0 && people?.length === 0) return null;
 
   return (
     <div className="space-y-5 mb-5">
@@ -58,7 +59,11 @@ export default function Discover() {
         </section>
       )}
 
-      {people.length > 0 && (
+      {people === null && (
+        <SkeletonRegion label="Loading people to follow"><PeopleStripSkeleton /></SkeletonRegion>
+      )}
+
+      {people?.length > 0 && (
         <section>
           <h3 className="font-bold text-brand-navy px-1 mb-2">People to follow</h3>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4">

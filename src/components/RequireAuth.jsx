@@ -9,8 +9,8 @@ export default function RequireAuth({ children }) {
 
   if (loading) {
     return (
-      <div className="h-full grid place-items-center bg-brand-tint">
-        <Logo size={56} showWord={false} className="animate-pulse" />
+      <div role="status" aria-busy="true" aria-label="Loading ROAMR" className="h-full grid place-items-center bg-brand-tint">
+        <Logo size={56} showWord={false} className="motion-safe:animate-pulse" />
       </div>
     );
   }

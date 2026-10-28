@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Profile as UserIcon } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { titleCase } from "../lib/util.js";
+import { SkeletonRegion, ProfileHeaderSkeleton } from "../components/skeletons";
 
 const ITEMS = [
   { icon: Edit, title: "Edit Profile", sub: "Update personal info and picture", to: "/edit-profile" },
@@ -15,7 +16,7 @@ const ITEMS = [
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, profileStatus, logout } = useAuth();
 
   const rawName = profile?.displayName || user?.displayName || (user?.email ? user.email.split("@")[0] : "Explorer");
   const name = titleCase(rawName);
@@ -27,6 +28,9 @@ export default function Profile() {
   return (
     <div className="px-6 pt-8 pb-6 bg-white min-h-full">
       <div className="flex flex-col items-center mb-8">
+        {profileStatus === "loading" ? (
+          <SkeletonRegion label="Loading your profile"><ProfileHeaderSkeleton variant="compact" /></SkeletonRegion>
+        ) : (
         <button onClick={() => user && nav(`/u/${user.uid}`)} aria-label="View my profile" className="flex flex-col items-center">
           {photo ? (
             <img src={photo} alt="" className="w-28 h-28 rounded-full object-cover" />
@@ -39,6 +43,7 @@ export default function Profile() {
           {email && <p className="text-muted text-[15px]">{email}</p>}
           <span className="mt-2 text-brand-green text-[13px] font-semibold">View My Profile</span>
         </button>
+        )}
       </div>
 
       <div className="divide-y divide-black/5">

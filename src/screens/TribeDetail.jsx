@@ -10,6 +10,7 @@ import StatusBar from "../components/StatusBar.jsx";
 import ChatThread from "../components/ChatThread.jsx";
 import JoinButton from "../components/JoinButton.jsx";
 import { Tribes as TribesIcon, More } from "../components/Icons.jsx";
+import { SkeletonRegion, DetailSkeleton } from "../components/skeletons";
 
 const CAT_LABELS = { outdoor: "Outdoor", water: "Water", wheel: "Wheels", nature: "Nature", snow: "Snow" };
 
@@ -18,8 +19,9 @@ export default function TribeDetail() {
   const nav = useNavigate();
   const { user, profile, blockedIds, reportContent } = useAuth();
   const { tribes, joinedIds, toggleMembership } = useTribes();
-  const [tribe, setTribe] = useState(() => tribes.find((t) => t.id === id) || null);
-  const [messages, setMessages] = useState([]);
+  // undefined while the doc loads (skeleton), null if it doesn't exist.
+  const [tribe, setTribe] = useState(() => tribes.find((t) => t.id === id));
+  const [messages, setMessages] = useState(null); // null until the first chat snapshot
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
   const joined = joinedIds.has(id);
@@ -27,22 +29,23 @@ export default function TribeDetail() {
   useEffect(() => {
     const local = tribes.find((t) => t.id === id);
     if (local) { setTribe(local); return; }
-    getDoc(doc(db, "tribes", id)).then((s) => s.exists() && setTribe({ id: s.id, ...s.data() })).catch(() => {});
+    getDoc(doc(db, "tribes", id)).then((s) => setTribe(s.exists() ? { id: s.id, ...s.data() } : null)).catch(() => setTribe(null));
   }, [id, tribes]);
 
   useEffect(() => {
     if (!joined) { setMessages([]); return; }
+    setMessages(null);
     const q = query(collection(db, "tribes", id, "messages"), orderBy("createdAt", "asc"), limitToLast(100)); // newest 100 (limit() returned the oldest 200, freezing the chat)
     return onSnapshot(q,
       (snap) => setMessages(snap.docs.map((d) => ({
         id: d.id, uid: d.data().authorId, name: d.data().authorName, text: d.data().text, createdAt: d.data().createdAt,
       }))),
-      (e) => console.warn("tribe messages:", e.message));
+      (e) => { console.warn("tribe messages:", e.message); setMessages([]); });
   }, [id, joined]);
 
   // Hide messages from people you've blocked.
   const shownMessages = useMemo(
-    () => messages.filter((m) => !(m.uid && blockedIds?.has(m.uid))),
+    () => (messages || []).filter((m) => !(m.uid && blockedIds?.has(m.uid))),
     [messages, blockedIds]
   );
 
@@ -84,6 +87,9 @@ export default function TribeDetail() {
         )}
       </div>
 
+      {tribe === undefined ? (
+        <SkeletonRegion label="Loading tribe"><DetailSkeleton variant="tribe" /></SkeletonRegion>
+      ) : (
       <div className="px-5 pt-4 pb-4 border-b border-black/5">
         <div className="flex items-center gap-3">
           {tribe?.img ? (
@@ -110,11 +116,12 @@ export default function TribeDetail() {
         )}
         {tribe?.description && <p className="text-ink/80 text-sm mt-3">{tribe.description}</p>}
       </div>
+      )}
 
       {notice && <p className="text-center text-brand-green text-[13px] py-2 px-4 bg-brand-tint">{notice}</p>}
 
       {joined ? (
-        <ChatThread messages={shownMessages} meUid={user?.uid} onSend={send} showNames
+        <ChatThread messages={shownMessages} loading={messages === null} meUid={user?.uid} onSend={send} showNames
           onAuthorClick={(m) => m.uid && nav(`/u/${m.uid}`)} placeholder="Message the tribe…" />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">

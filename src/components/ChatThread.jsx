@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Send } from "./Icons.jsx";
+import { SkeletonRegion, ChatSkeleton } from "./skeletons";
 
-// messages: [{ id, uid, name, photo, text, createdAt }]
-export default function ChatThread({ messages = [], meUid, onSend, placeholder = "Message…", showNames = false, onAuthorClick }) {
+// messages: [{ id, uid, name, photo, text, createdAt }]; loading shows placeholder bubbles.
+export default function ChatThread({ messages = [], loading = false, meUid, onSend, placeholder = "Message…", showNames = false, onAuthorClick }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
@@ -26,7 +27,9 @@ export default function ChatThread({ messages = [], meUid, onSend, placeholder =
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3 space-y-2">
-        {messages.length === 0 ? (
+        {loading ? (
+          <SkeletonRegion label="Loading messages" className="space-y-2"><ChatSkeleton /></SkeletonRegion>
+        ) : messages.length === 0 ? (
           <p className="text-center text-muted text-sm mt-10">No messages yet. Say hi 👋</p>
         ) : messages.map((m) => {
           const mine = m.uid === meUid;
