@@ -63,7 +63,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
         <Route path="/legal/:doc" element={<Legal />} />
         <Route path="/app" element={<RequireAuth><TabsLayout /></RequireAuth>}>
           <Route index element={<Navigate to="home" replace />} />

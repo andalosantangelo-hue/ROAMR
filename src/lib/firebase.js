@@ -4,6 +4,7 @@ import {
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
+import { getFunctions } from "firebase/functions";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Firebase web config is safe to ship in client code.
@@ -38,6 +39,7 @@ export const db = initializeFirestore(app, {
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
 
 const analyticsConsent = typeof localStorage !== "undefined" && localStorage.getItem("roamr_analytics_consent") === "yes";
 isSupported().then((ok) => { if (ok && analyticsConsent) getAnalytics(app); }).catch(() => {});

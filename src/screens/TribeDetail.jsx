@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp,
+  collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, limitToLast, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -32,7 +32,7 @@ export default function TribeDetail() {
 
   useEffect(() => {
     if (!joined) { setMessages([]); return; }
-    const q = query(collection(db, "tribes", id, "messages"), orderBy("createdAt", "asc"), limit(200));
+    const q = query(collection(db, "tribes", id, "messages"), orderBy("createdAt", "asc"), limitToLast(100)); // newest 100 (limit() returned the oldest 200, freezing the chat)
     return onSnapshot(q,
       (snap) => setMessages(snap.docs.map((d) => ({
         id: d.id, uid: d.data().authorId, name: d.data().authorName, text: d.data().text, createdAt: d.data().createdAt,

@@ -10,10 +10,12 @@ export default function Waiver() {
   const { profile, savePrivate } = useAuth();
   const accepted = !!profile?.waiverAcceptedAt;
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const accept = async () => {
     setBusy(true);
     try { await savePrivate({ waiverAcceptedAt: Date.now(), waiverVersion: WAIVER_VERSION }); nav(-1); }
+    catch { setError("That didn't save. Check your connection and try again."); }
     finally { setBusy(false); }
   };
 
@@ -39,6 +41,7 @@ export default function Waiver() {
         <div className="h-4" />
       </div>
       <div className="px-6 pb-7 pt-3 border-t border-black/5">
+        {error && <p role="alert" className="text-red-600 text-sm mb-3">{error}</p>}
         <button disabled={busy} onClick={accept} className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark text-white font-semibold py-4 disabled:opacity-60">
           {accepted ? "I acknowledge again" : busy ? "Saving…" : "I understand & accept"}
         </button>

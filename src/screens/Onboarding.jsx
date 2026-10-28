@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import { Hiking, Water, Bike, Nature, Snow, Check } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
-import { titleCase } from "../lib/util.js";
+import { titleCase, safeReturnPath } from "../lib/util.js";
 import { AVAILABILITY } from "../lib/profile.js";
 
 const ACTIVITIES = [
@@ -18,6 +18,8 @@ const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 
 export default function Onboarding() {
   const nav = useNavigate();
+  const from = safeReturnPath(useLocation().state?.from);
+  const [error, setError] = useState("");
   const { user, profile, saveInterests, saveProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [name, setName] = useState(profile?.displayName || user?.displayName || "");
@@ -49,7 +51,7 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
-    setBusy(true);
+    setBusy(true); setError("");
     try {
       const skillLevels = {};
       selected.forEach((id) => { skillLevels[id] = levels[id] || "Beginner"; });
@@ -57,9 +59,14 @@ export default function Onboarding() {
       await saveProfile({ displayName: titleCase(name), subInterests: subs, skillLevels,
         location: location.trim(), availability, prompts });
       await saveInterests(selected);
-    } catch { /* non-blocking */ }
+    } catch {
+      // Used to be swallowed: the user landed on Home with no name or interests saved.
+      setError("We couldn't save your profile. Check your connection and tap Finish again.");
+      setBusy(false);
+      return;
+    }
     track("onboarding_complete", { count: selected.length });
-    nav("/app/home");
+    nav(from || "/app/home", { replace: true });
   };
 
   return (
@@ -158,6 +165,7 @@ export default function Onboarding() {
             </div>
 
             <div className="mt-auto pt-8 pb-7">
+              {error && <p role="alert" className="text-red-600 text-sm mb-3 text-center">{error}</p>}
               <button disabled={busy} onClick={finish}
                 className="w-full rounded-xl py-4 font-semibold bg-brand-green hover:bg-brand-greenDark text-white transition disabled:opacity-60">
                 {busy ? "Setting up…" : "Finish"}

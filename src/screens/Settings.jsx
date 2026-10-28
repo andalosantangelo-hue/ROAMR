@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { registerPush } from "../lib/push.js";
@@ -11,7 +11,14 @@ export default function Settings() {
   const [exporting, setExporting] = useState(false);
   const onExport = async () => { setExporting(true); try { await exportMyData(); } finally { setExporting(false); } };
   const prefs = profile?.notificationPrefs || { kudos: true, comments: true, activityJoin: true, tribeMember: true, newFollower: true };
-  const togglePref = (k) => savePrivate({ notificationPrefs: { ...prefs, [k]: !prefs[k] } });
+  // Tracks the latest prefs so two quick toggles don't overwrite each other (the second
+  // used to save from a stale copy and undo the first).
+  const prefsRef = useRef(prefs);
+  const togglePref = (k) => {
+    const next = { ...prefsRef.current, [k]: !prefsRef.current[k] };
+    prefsRef.current = next;
+    savePrivate({ notificationPrefs: next }).catch(() => setPushMsg("That setting didn't save. Please try again."));
+  };
   const [pushMsg, setPushMsg] = useState("");
   const enablePush = async () => {
     try { await registerPush(user.uid); setPushMsg("Notifications enabled on this device."); }

@@ -20,17 +20,25 @@ function Toggle({ on, onChange, label }) {
 
 export default function SafetyControls() {
   const nav = useNavigate();
-  const { profile, saveProfile } = useAuth();
+  const { profile, saveProfile, savePrivate } = useAuth();
   const [whoCanMessage, setWho] = useState(profile?.whoCanMessage || "everyone");
   const [verifiedOnly, setVerifiedOnly] = useState(!!profile?.verifiedOnly);
   const [womenOnly, setWomenOnly] = useState(!!profile?.womenOnly);
   const [gender, setGender] = useState(profile?.gender || "");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   const save = async () => {
-    setBusy(true);
-    try { await saveProfile({ whoCanMessage, verifiedOnly, womenOnly, gender }); setSaved(true); setTimeout(() => nav(-1), 600); }
+    if (womenOnly && gender !== "woman") { setError("Women-only messaging is available when your gender is set to Woman."); return; }
+    setBusy(true); setError("");
+    try {
+      // Gender is private (only used to enforce women-only messaging server-side); it
+      // used to be on the public profile that every signed-in user can read.
+      await savePrivate({ gender });
+      await saveProfile({ whoCanMessage, verifiedOnly, womenOnly }, { remove: ["gender"] });
+      setSaved(true); setTimeout(() => nav(-1), 600);
+    } catch { setError("Your settings couldn't be saved. Please try again."); }
     finally { setBusy(false); }
   };
 
@@ -76,6 +84,7 @@ export default function SafetyControls() {
         <div className="h-4" />
       </div>
       <div className="px-6 pb-7 pt-3 border-t border-black/5">
+        {error && <p role="alert" className="text-red-600 text-sm mb-3">{error}</p>}
         <button disabled={busy} onClick={save} className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark text-white font-semibold py-4 disabled:opacity-60">
           {saved ? "Saved ✓" : busy ? "Saving…" : "Save"}
         </button>

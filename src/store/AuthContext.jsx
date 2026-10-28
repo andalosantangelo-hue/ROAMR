@@ -2,41 +2,32 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signInWithPopup, signInWithCredential, GoogleAuthProvider, OAuthProvider, signOut, sendPasswordResetEmail,
-  fetchSignInMethodsForEmail, deleteUser, sendEmailVerification,
+  fetchSignInMethodsForEmail, sendEmailVerification,
 } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
-  doc, getDoc, setDoc, deleteDoc, addDoc, collection, collectionGroup, getDocs, query, where,
-  onSnapshot, orderBy, limit, serverTimestamp,
+  doc, getDoc, setDoc, deleteDoc, addDoc, collection, getDocs, query, where,
+  onSnapshot, orderBy, limit, serverTimestamp, deleteField, terminate, clearIndexedDbPersistence,
 } from "firebase/firestore";
-import { ref as sref, listAll, deleteObject } from "firebase/storage";
-import { auth, db, storage } from "../lib/firebase.js";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../lib/firebase.js";
+import { unregisterPush } from "../lib/push.js";
 import { toggleSet } from "../lib/util.js";
 
 const AuthContext = createContext(null);
 
-// Private fields (email/phone/tokens/prefs) live in users/{uid}/private/data —
+// Private fields (email/phone/tokens/prefs/gender) live in users/{uid}/private/data —
 // readable ONLY by the owner. The users/{uid} doc holds public profile fields.
 const privDoc = (uid) => doc(db, "users", uid, "private", "data");
 
-// Recursively delete everything under a Storage path (best-effort).
-async function deleteStoragePrefix(path) {
-  try {
-    const res = await listAll(sref(storage, path));
-    await Promise.all(res.items.map((i) => deleteObject(i).catch(() => {})));
-    await Promise.all(res.prefixes.map((pre) => deleteStoragePrefix(pre.fullPath)));
-  } catch { /* nothing there / not permitted */ }
-}
+// A profile "needs onboarding" until it has a name and at least one interest, so a
+// user who quit or errored mid-onboarding is sent back there instead of to Home.
+export const needsOnboarding = (data) => !data?.displayName || !(data?.interests || []).length;
 
 async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
-  const pubBase = {
-    displayName: user.displayName || null,
-    photoURL: user.photoURL || null,
-    updatedAt: serverTimestamp(),
-  };
   const privBase = {
     email: user.email || null,
     phoneNumber: user.phoneNumber || null,
@@ -44,16 +35,30 @@ async function ensureUserDoc(user) {
   };
   if (!snap.exists()) {
     await setDoc(ref, {
-      uid: user.uid, ...pubBase, interests: [], bio: "",
+      uid: user.uid, displayName: user.displayName || null, photoURL: user.photoURL || null,
+      interests: [], bio: "",
       subscription: { tier: "basic", source: "manual", renewsAt: null, amount: null },
-      followingCount: 0, followerCount: 0, createdAt: serverTimestamp(),
+      followingCount: 0, followerCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     await setDoc(privDoc(user.uid), { ...privBase, fcmTokens: [], notificationPrefs: {}, createdAt: serverTimestamp() });
     return { isNew: true, interests: [] };
   }
-  await setDoc(ref, pubBase, { merge: true });
+  // Returning user: only fill name/photo from the auth provider when the profile has
+  // none. Writing them unconditionally (as before) replaced the name and photo the
+  // user chose in ROAMR with null on every email sign-in.
+  const data = snap.data();
+  const fill = {};
+  if (!data.displayName && user.displayName) fill.displayName = user.displayName;
+  if (!data.photoURL && user.photoURL) fill.photoURL = user.photoURL;
+  if (Object.keys(fill).length) await setDoc(ref, { ...fill, updatedAt: serverTimestamp() }, { merge: true });
   await setDoc(privDoc(user.uid), privBase, { merge: true });
-  return { isNew: false, interests: snap.data().interests || [] };
+  return { isNew: needsOnboarding({ ...data, ...fill }), interests: data.interests || [] };
+}
+
+// Wipes this device's offline Firestore cache (DMs, trip plans, medical info) and
+// reloads, so nothing from the previous account survives a sign-out on a shared phone.
+async function clearLocalData() {
+  try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) { console.warn("cache clear:", e.message); }
 }
 
 export function AuthProvider({ children }) {
@@ -63,23 +68,28 @@ export function AuthProvider({ children }) {
   const [followingIds, setFollowingIds] = useState(new Set());
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  // "loading" until the first profile snapshot, "ready" after, "error" if it failed.
+  // Edit Profile only renders its form when "ready", so a failed load can't save an
+  // empty form over the user's real profile.
+  const [profileStatus, setProfileStatus] = useState("loading");
 
+  useEffect(() => onAuthStateChanged(auth, (u) => {
+    setUser(u);
+    if (!u) { setProfile(null); setProfileStatus("loading"); }
+    setLoading(false);
+  }), []);
+
+  // Live profile: picks up server-side changes (verification approved, new ratings,
+  // follower counts) without a reload, and the doc created during sign-up.
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        try {
-          const [pub, priv] = await Promise.all([
-            getDoc(doc(db, "users", u.uid)),
-            getDoc(privDoc(u.uid)),
-          ]);
-          setProfile({ ...(pub.exists() ? pub.data() : {}), ...(priv.exists() ? priv.data() : {}) });
-        } catch { setProfile(null); }
-      } else { setProfile(null); }
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+    if (!user) return;
+    let priv = {}, pub = null;
+    const merge = () => setProfile({ ...(pub || {}), ...priv });
+    getDoc(privDoc(user.uid)).then((s) => { priv = s.exists() ? s.data() : {}; if (pub) merge(); }).catch(() => {});
+    return onSnapshot(doc(db, "users", user.uid),
+      (s) => { pub = s.exists() ? s.data() : {}; merge(); setProfileStatus("ready"); },
+      (e) => { console.warn("profile:", e.message); setProfileStatus("error"); });
+  }, [user]);
 
   useEffect(() => {
     if (!user) { setBlockedIds(new Set()); return; }
@@ -163,12 +173,25 @@ export function AuthProvider({ children }) {
     return afterAuth(await signInWithPopup(auth, p));
   };
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
-  const logout = () => signOut(auth);
+  const logout = async () => {
+    const uid = auth.currentUser?.uid;
+    await unregisterPush(uid);
+    await signOut(auth);
+    await clearLocalData();
+    // Firestore can't be used after terminate(); a fresh page load re-initialises it.
+    window.location.replace("/login");
+  };
 
-  const saveProfile = async (fields) => {
+  // `remove` deletes fields from the public doc (e.g. migrating `gender` to private).
+  const saveProfile = async (fields, { remove = [] } = {}) => {
     if (!auth.currentUser) return;
-    await setDoc(doc(db, "users", auth.currentUser.uid), { ...fields, updatedAt: serverTimestamp() }, { merge: true });
-    setProfile((p) => ({ ...(p || {}), ...fields }));
+    const drops = Object.fromEntries(remove.map((k) => [k, deleteField()]));
+    await setDoc(doc(db, "users", auth.currentUser.uid), { ...fields, ...drops, updatedAt: serverTimestamp() }, { merge: true });
+    setProfile((p) => {
+      const next = { ...(p || {}), ...fields };
+      remove.forEach((k) => { delete next[k]; });
+      return next;
+    });
   };
   const saveInterests = async (interests) => {
     if (!auth.currentUser) return;
@@ -198,37 +221,24 @@ export function AuthProvider({ children }) {
     await deleteDoc(doc(db, "users", user.uid, "blocked", targetUid));
   };
 
-  // In-app account deletion (client teardown; robust fan-out is a Cloud Function later)
+  // Account deletion runs server-side (deleteAccount callable, Admin SDK). The old
+  // client-side cascade failed for anyone whose content had a like or comment from
+  // someone else (rules only let authors delete those) and left a half-deleted
+  // account behind. The server also removes Storage files, DMs, trip plans,
+  // verification selfies and the Auth account. It requires a recent sign-in.
   const deleteAccount = async () => {
-    const u = auth.currentUser;
-    if (!u) return;
-    const uid = u.uid;
-    for (const grp of ["likes", "attendees", "members"]) {
-      const qs = await getDocs(query(collectionGroup(db, grp), where("uid", "==", uid)));
-      await Promise.all(qs.docs.map((d) => deleteDoc(d.ref)));
-    }
-    for (const sub of ["following", "saves", "blocked", "notifications", "private"]) {
-      const qs = await getDocs(collection(db, "users", uid, sub));
-      await Promise.all(qs.docs.map((d) => deleteDoc(d.ref)));
-    }
-    for (const [coll, field, subs] of [
-      ["posts", "authorId", ["likes", "comments"]],
-      ["activities", "authorId", ["likes", "comments", "attendees"]],
-      ["tribes", "ownerId", ["members"]],
-      ["listings", "sellerId", []],
-    ]) {
-      const qs = await getDocs(query(collection(db, coll), where(field, "==", uid)));
-      for (const d of qs.docs) {
-        for (const sub of subs) {
-          const sq = await getDocs(collection(d.ref, sub));
-          await Promise.all(sq.docs.map((x) => deleteDoc(x.ref)));
-        }
-        await deleteDoc(d.ref);
+    if (!auth.currentUser) return;
+    try {
+      await httpsCallable(functions, "deleteAccount")();
+    } catch (e) {
+      if (e.code === "functions/failed-precondition") {
+        throw new Error("For your security, sign out and sign back in, then delete your account.", { cause: e });
       }
+      throw new Error("We couldn't delete your account. Please try again.", { cause: e });
     }
-    await Promise.all(["avatars", "posts", "activities", "listings"].map((pfx) => deleteStoragePrefix(`${pfx}/${uid}`)));
-    await deleteDoc(doc(db, "users", uid));
-    await deleteUser(u);
+    await signOut(auth).catch(() => {});
+    await clearLocalData();
+    window.location.replace("/login");
   };
 
   // GDPR data portability — download everything we hold about you as JSON.
@@ -260,7 +270,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, blockedIds, loading,
+      user, profile, profileStatus, blockedIds, loading,
       emailMethods, signInEmail, signUpEmail, googleSignIn, appleSignIn,
       resetPassword, logout, saveInterests, saveProfile, savePrivate,
       reportContent, blockUser, unblockUser, deleteAccount, exportMyData, resendVerification, followingIds, toggleFollow,

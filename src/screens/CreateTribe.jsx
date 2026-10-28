@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { useTribes } from "../store/TribesContext.jsx";
 import { Plus } from "../components/Icons.jsx";
@@ -34,7 +35,7 @@ export default function CreateTribe() {
       await addTribe({ name: name.trim(), file, categories, location: location.trim(), description: description.trim() });
       nav("/app/tribes");
     } catch (e) {
-      setError(e.message || "Could not create tribe.");
+      setError(friendlyError(e, "Your tribe couldn't be created. Please try again."));
       setBusy(false);
     }
   };
@@ -78,11 +79,11 @@ export default function CreateTribe() {
         </div>
 
         <label className="block mt-6 text-sm font-semibold text-ink/80 mb-2">Tribe Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Weekend Wanderers"
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="e.g. Weekend Wanderers"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Denver, CO"
+        <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="e.g. Denver, CO"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Description</label>

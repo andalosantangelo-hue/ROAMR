@@ -51,6 +51,7 @@ export default function PublicProfile() {
   const [refs, setRefs] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [opening, setOpening] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [vouchOpen, setVouchOpen] = useState(false);
   const [vouchText, setVouchText] = useState("");
   const isMe = user && user.uid === uid;
@@ -84,13 +85,34 @@ export default function PublicProfile() {
 
   const message = async () => {
     if (opening) return;
-    setOpening(true);
+    setOpening(true); setActionError("");
     try { const tid = await openThread({ uid, name, photo: photos[0] || "" }); if (tid) nav(`/chat/${tid}`); }
-    catch (e) { console.warn("openThread:", e.message); } finally { setOpening(false); }
+    catch (e) { setActionError(e.message || "Couldn't open a conversation. Try again."); }
+    finally { setOpening(false); }
   };
   const submitVouch = async () => {
-    try { await vouchFor(uid, vouchText); setVouchOpen(false); setVouchText(""); } catch (e) { console.warn(e.message); }
+    setActionError("");
+    try { await vouchFor(uid, vouchText); setVouchOpen(false); setVouchText(""); }
+    catch { setActionError("Couldn't post your vouch. Check your connection and try again."); }
   };
+
+  if (!loadingP && !p) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <StatusBar />
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
+          <h1 className="text-lg font-semibold text-brand-navy">Profile</h1>
+        </div>
+        <div className="flex-1 grid place-items-center px-8 text-center">
+          <div>
+            <p className="font-semibold text-brand-navy">This profile isn't available</p>
+            <p className="text-sm text-muted mt-1">The account may have been deleted.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stream = [];
   const maxLen = Math.max(prompts.length, extraPhotos.length);
@@ -160,6 +182,7 @@ export default function PublicProfile() {
               <button onClick={() => nav(`/review/${uid}`)} className="flex-1 rounded-xl py-2.5 text-sm font-semibold bg-brand-tint text-brand-navy">★ Review</button>
             </div>
           )}
+          {actionError && <p role="alert" className="text-red-600 text-sm mt-2">{actionError}</p>}
           {vouchOpen && (
             <div className="mt-2 rounded-xl border border-black/10 p-3">
               <textarea value={vouchText} onChange={(e) => setVouchText(e.target.value)} rows={2} maxLength={600} placeholder={`Why do you vouch for ${name}?`}

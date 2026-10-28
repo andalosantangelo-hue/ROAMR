@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { useListings } from "../store/ListingsContext.jsx";
 import { Plus } from "../components/Icons.jsx";
@@ -26,7 +27,9 @@ export default function CreateListing() {
     setPreviews(fs.map((f) => URL.createObjectURL(f)));
   };
 
-  const canPost = title.trim() && price && files.length > 0 && !busy;
+  // "1.2.3" or "." used to slip through and save as $0. Max matches the rules.
+  const priceOk = /^\d{1,6}(\.\d{1,2})?$/.test(price) && Number(price) <= 100000;
+  const canPost = title.trim() && priceOk && files.length > 0 && !busy;
 
   const submit = async () => {
     if (!canPost) return;
@@ -34,7 +37,7 @@ export default function CreateListing() {
     try {
       const id = await addListing({ title: title.trim(), description: desc.trim(), price, type, category, files });
       nav(id ? `/listing/${id}` : "/app/marketplace");
-    } catch (e) { setError(e.message || "Could not list."); setBusy(false); }
+    } catch (e) { setError(friendlyError(e, "Your listing couldn't be posted. Please try again.")); setBusy(false); }
   };
 
   return (
@@ -59,7 +62,7 @@ export default function CreateListing() {
         <p className="text-muted text-[12px] mt-2">Add up to 5 photos</p>
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Title</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2-person tent, barely used"
+        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="e.g. 2-person tent, barely used"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Category</label>
@@ -92,7 +95,7 @@ export default function CreateListing() {
         </div>
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Description</label>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="Condition, size, pickup details…"
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={2000} placeholder="Condition, size, pickup details…"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted resize-none" />
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </div>

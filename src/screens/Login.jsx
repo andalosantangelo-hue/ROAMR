@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
 import { Google, Apple } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
+import { safeReturnPath } from "../lib/util.js";
 
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
@@ -22,10 +23,12 @@ export default function Login() {
   const [dob, setDob] = useState("");
   const ageFrom = (d) => { const b = new Date(d), t = new Date(); let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--; return a; };
 
-  // New users go to onboarding; returning users always land on Home.
+  // New users go to onboarding; returning users land where they were headed (a shared
+  // invite link) or Home. The deep link is carried through onboarding too.
+  const from = safeReturnPath(useLocation().state?.from);
   const go = ({ isNew }, method = "email") => {
     track(isNew ? "sign_up" : "login", { method });
-    nav(isNew ? "/onboarding" : "/app/home", { replace: true });
+    nav(isNew ? "/onboarding" : (from || "/app/home"), { replace: true, state: { from } });
   };
 
   const submit = async (e) => {
@@ -151,6 +154,11 @@ function prettyError(code) {
     "auth/operation-not-allowed": "This sign-in method isn't enabled yet in Firebase.",
     "auth/too-many-requests": "Too many attempts. Please wait and try again.",
     "auth/network-request-failed": "Network error — check your connection.",
+    "auth/popup-blocked": "Your browser blocked the sign-in window. Allow pop-ups for ROAMR and try again.",
+    "auth/cancelled-popup-request": "Sign-in cancelled.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/account-exists-with-different-credential": "You already have an account with this email. Sign in the way you did before.",
+    "auth/user-disabled": "This account has been disabled. Contact admin@roamrapp.org.",
   };
   return m[code];
 }

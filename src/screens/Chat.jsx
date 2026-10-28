@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  collection, doc, getDoc, addDoc, updateDoc, onSnapshot, query, orderBy, limit, serverTimestamp,
+  collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, limitToLast, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -18,14 +18,15 @@ export default function Chat() {
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    getDoc(doc(db, "threads", threadId))
-      .then((s) => setMeta(s.exists() ? s.data() : null))
-      .catch(() => setMeta(null));
-  }, [threadId]);
+  // Live, so the other person's name/photo appear as soon as the server fills them in.
+  useEffect(() => onSnapshot(doc(db, "threads", threadId),
+    (s) => setMeta(s.exists() ? s.data() : null),
+    () => setMeta(null)), [threadId]);
 
+  // limitToLast: the newest 100 messages. limit(200) on an ascending query returned the
+  // OLDEST 200, so from message 201 on, new messages never appeared.
   useEffect(() => {
-    const q = query(collection(db, "threads", threadId, "messages"), orderBy("createdAt", "asc"), limit(200));
+    const q = query(collection(db, "threads", threadId, "messages"), orderBy("createdAt", "asc"), limitToLast(100));
     return onSnapshot(q,
       (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, uid: d.data().senderId, text: d.data().text, createdAt: d.data().createdAt }))),
       (e) => console.warn("dm messages:", e.message));

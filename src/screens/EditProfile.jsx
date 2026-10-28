@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
-import { compressImage } from "../lib/image.js";
+import { compressImage, friendlyError } from "../lib/image.js";
 import { titleCase } from "../lib/util.js";
 import * as P from "../lib/profile.js";
 import StatusBar from "../components/StatusBar.jsx";
@@ -57,7 +57,30 @@ function Section({ id, title, hint, filled, open, onToggle, children }) {
   );
 }
 
+// The form copies the profile into local state once, when it mounts. Mounting it
+// before the profile loaded (or after a failed load) produced an empty form whose
+// Save wiped the user's real profile — so it only mounts once the profile is ready.
 export default function EditProfile() {
+  const nav = useNavigate();
+  const { profileStatus } = useAuth();
+  if (profileStatus === "ready") return <EditProfileForm />;
+  return (
+    <div className="h-full flex flex-col bg-brand-tint/40">
+      <StatusBar />
+      <div className="flex items-center gap-3 px-5 py-3">
+        <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
+        <h1 className="text-lg font-semibold text-brand-navy">Edit Profile</h1>
+      </div>
+      <div className="flex-1 grid place-items-center px-8 text-center">
+        {profileStatus === "error"
+          ? <p className="text-sm text-ink/80">We couldn't load your profile. Check your connection, then go back and try again.</p>
+          : <p className="text-sm text-muted">Loading your profile…</p>}
+      </div>
+    </div>
+  );
+}
+
+function EditProfileForm() {
   const nav = useNavigate();
   const { user, profile, saveProfile } = useAuth();
   const fileRef = useRef(null);
@@ -125,6 +148,8 @@ export default function EditProfile() {
   const picked = P.ACTIVITIES.filter((a) => f.interests.includes(a.id));
 
   const save = async () => {
+    const name = titleCase(f.name);
+    if (name.length < 2 || name.length > 40) { setError("Your name needs to be between 2 and 40 characters."); return; }
     setBusy(true); setError("");
     try {
       const uid = auth.currentUser.uid;
@@ -137,7 +162,7 @@ export default function EditProfile() {
         } else if (ph.url) { urls.push(ph.url); }
       }
       await saveProfile({
-        displayName: titleCase(f.name), bio: f.bio.trim(), location: f.location.trim(),
+        displayName: name, bio: f.bio.trim().slice(0, 300), location: f.location.trim().slice(0, 80),
         photos: urls, photoURL: urls[0] || null,
         languages: f.languages, pets: f.pets,
         interests: f.interests, skillLevels: f.skillLevels, experience: f.experience,
@@ -146,12 +171,12 @@ export default function EditProfile() {
         availability: f.availability, seasons: f.seasons, leadTime: f.leadTime, willTravel: f.willTravel, style: f.style,
         lookingFor: f.lookingFor, partnerWants: f.partnerWants, dealbreakers: f.dealbreakers,
         certifications: f.certifications, gearShare: f.gearShare,
-        bucketList: f.bucketList.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 12),
+        bucketList: f.bucketList.split("\n").map((x) => x.trim().slice(0, 120)).filter(Boolean).slice(0, 12),
         recentTrips: f.recentTrips.trim(),
         prompts: prompts.filter((p) => p.a && p.a.trim()).map((p) => ({ q: p.q, a: p.a.trim() })),
       });
       nav(-1);
-    } catch (e) { setError(e.message || "Could not save."); setBusy(false); }
+    } catch (e) { setError(friendlyError(e, "Your profile couldn't be saved. Please try again.")); setBusy(false); }
   };
 
   return (
@@ -197,9 +222,9 @@ export default function EditProfile() {
         {/* 2. About you */}
         <Section id="about" title="About you" hint="Name, home base, bio" filled={!!f.name && !!f.location} open={open.about} onToggle={toggleSection}>
           <Sub>Display name</Sub>
-          <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Your name" className={inputCls} />
+          <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Your name" maxLength={40} className={inputCls} />
           <Sub>Home base</Sub>
-          <input value={f.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Denver, CO" className={inputCls} />
+          <input value={f.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Denver, CO" maxLength={80} className={inputCls} />
           <Sub>Bio</Sub>
           <textarea value={f.bio} onChange={(e) => set("bio", e.target.value)} rows={3} maxLength={300} placeholder="A line about your adventures" className={`${inputCls} resize-none`} />
           <Sub>Languages</Sub>

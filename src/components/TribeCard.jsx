@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import JoinButton from "./JoinButton.jsx";
 import { Tribes as TribesIcon, Send } from "./Icons.jsx";
 import { shareInvite } from "../lib/share.js";
 import { useTribes } from "../store/TribesContext.jsx";
 
-export default function TribeCard({ tribe }) {
+function TribeCardInner({ tribe }) {
   const nav = useNavigate();
   const { joinedIds, toggleMembership } = useTribes();
   const joined = joinedIds.has(tribe.id);
@@ -30,4 +31,9 @@ export default function TribeCard({ tribe }) {
       <JoinButton joined={joined} onToggle={() => toggleMembership(tribe)} />
     </div>
   );
+}
+
+// Isolates render errors to this card (see ErrorBoundary).
+export default function TribeCard(props) {
+  return <ErrorBoundary fallback={null}><TribeCardInner {...props} /></ErrorBoundary>;
 }

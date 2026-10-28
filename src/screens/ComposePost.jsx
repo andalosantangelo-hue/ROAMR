@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { usePosts } from "../store/PostsContext.jsx";
 import { Plus, Star } from "../components/Icons.jsx";
@@ -23,7 +24,7 @@ export default function ComposePost() {
     if (!canPost) return;
     setBusy(true); setError("");
     try { await addPost({ title: title.trim(), location: location.trim(), rating, file }); nav("/app/home"); }
-    catch (e) { setError(e.message || "Could not post."); setBusy(false); }
+    catch (e) { setError(friendlyError(e, "Your post couldn't be shared. Please try again.")); setBusy(false); }
   };
 
   return (
@@ -47,11 +48,11 @@ export default function ComposePost() {
         <input ref={fileRef} type="file" accept="image/*" onChange={pick} className="hidden" />
 
         <label className="block mt-6 text-sm font-semibold text-ink/80 mb-2">Title</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mt Daraitan + Tinipak River"
+        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} placeholder="e.g. Mt Daraitan + Tinipak River"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Mount Daraitan · Tanay"
+        <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="e.g. Mount Daraitan · Tanay"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-4 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Rating</label>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  collection, addDoc, onSnapshot, query, orderBy, serverTimestamp,
+  collection, addDoc, onSnapshot, query, orderBy, limitToLast, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -18,17 +18,20 @@ const fmt = (ts) => {
 export default function Comments() {
   const { type, id } = useParams();          // type = "posts" | "activities"
   const nav = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, blockedIds } = useAuth();
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const endRef = useRef(null);
 
+  // Newest 100 only — an unbounded listener re-read every comment on every open.
   useEffect(() => {
-    const q = query(collection(db, type, id, "comments"), orderBy("createdAt", "asc"));
+    const q = query(collection(db, type, id, "comments"), orderBy("createdAt", "asc"), limitToLast(100));
     return onSnapshot(q, (snap) => setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       (e) => console.warn("comments:", e.message));
   }, [type, id]);
+  const visible = comments.filter((c) => !blockedIds?.has(c.authorId));
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments.length]);
 
@@ -36,16 +39,19 @@ export default function Comments() {
     e.preventDefault();
     const t = text.trim();
     if (!t || !user || busy) return;
-    setText(""); setBusy(true);
+    setBusy(true); setError("");
     try {
       await addDoc(collection(db, type, id, "comments"), {
         authorId: user.uid,
-        authorName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
+        authorName: (profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer")).slice(0, 40),
         authorPhotoURL: profile?.photoURL || user.photoURL || null,
         text: t, createdAt: serverTimestamp(),
       });
+      setText(""); // only clear once it's saved — a failed send used to lose the text
       // commentCount maintained by Cloud Function
-    } catch (err) { console.warn("addComment:", err.message); }
+    } catch {
+      setError("Your comment didn't send. Check your connection and try again.");
+    }
     setBusy(false);
   };
 
@@ -58,12 +64,12 @@ export default function Comments() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4">
-        {comments.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="text-center text-muted mt-16 px-8">
             <p className="font-semibold text-brand-navy">No comments yet</p>
             <p className="text-sm mt-1">Start the conversation.</p>
           </div>
-        ) : comments.map((c) => (
+        ) : visible.map((c) => (
           <div key={c.id} className="flex gap-3">
             {c.authorPhotoURL ? (
               <img src={c.authorPhotoURL} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -82,8 +88,9 @@ export default function Comments() {
         <div ref={endRef} />
       </div>
 
+      {error && <p role="alert" className="text-red-600 text-sm px-4 pt-2">{error}</p>}
       <form onSubmit={send} className="flex items-center gap-2 px-4 py-3 border-t border-black/5 pb-6">
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a comment…"
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a comment…" maxLength={2000}
           className="flex-1 rounded-full border border-black/10 bg-white px-4 py-3 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
         <button type="submit" disabled={!text.trim() || busy}
           className="w-11 h-11 rounded-full bg-brand-green text-white grid place-items-center disabled:opacity-40 shrink-0">

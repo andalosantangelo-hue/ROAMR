@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toggleSet, initials } from "./util.js";
+import { toggleSet, initials, isDemoId, safeText, safeReturnPath } from "./util.js";
 
 describe("toggleSet", () => {
   it("adds an id that isn't present", () => {
@@ -32,5 +32,46 @@ describe("initials", () => {
   });
   it("returns empty string for empty input", () => {
     expect(initials("")).toBe("");
+  });
+});
+
+describe("isDemoId", () => {
+  it("treats numeric seed ids as demo and Firestore string ids as real", () => {
+    expect(isDemoId(1)).toBe(true);
+    expect(isDemoId("aB3xQ9")).toBe(false);
+  });
+});
+
+describe("safeText", () => {
+  it("passes strings through and truncates", () => {
+    expect(safeText("hi")).toBe("hi");
+    expect(safeText("abcdef", 3)).toBe("abc");
+  });
+  it("renders numbers and booleans as text", () => {
+    expect(safeText(4)).toBe("4");
+    expect(safeText(false)).toBe("false");
+  });
+  it("drops objects, arrays and nullish values instead of crashing render", () => {
+    expect(safeText({ x: 1 })).toBe("");
+    expect(safeText(["a"])).toBe("");
+    expect(safeText(null)).toBe("");
+    expect(safeText(undefined)).toBe("");
+  });
+});
+
+describe("safeReturnPath", () => {
+  it("keeps in-app deep links", () => {
+    expect(safeReturnPath("/tribe/abc123")).toBe("/tribe/abc123");
+    expect(safeReturnPath("/invite/activity/x9")).toBe("/invite/activity/x9");
+  });
+  it("rejects external or protocol-relative targets", () => {
+    for (const bad of ["//evil.com", "/\\evil.com", "https://evil.com", "evil.com", null, 42]) {
+      expect(safeReturnPath(bad)).toBe(null);
+    }
+  });
+  it("ignores auth pages so users don't loop", () => {
+    expect(safeReturnPath("/login")).toBe(null);
+    expect(safeReturnPath("/onboarding")).toBe(null);
+    expect(safeReturnPath("/")).toBe(null);
   });
 });

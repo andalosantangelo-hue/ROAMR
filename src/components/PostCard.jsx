@@ -1,4 +1,5 @@
 import { Star, Heart, Comment, Send, Bookmark } from "./Icons.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import CardMenu from "./CardMenu.jsx";
 import { useNavigate } from "react-router-dom";
 import { usePosts } from "../store/PostsContext.jsx";
@@ -22,7 +23,7 @@ const fmtDate = (p) => {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 };
 
-export default function PostCard({ post }) {
+function PostCardInner({ post }) {
   const nav = useNavigate();
   const { likedIds, savedIds, toggleLike, toggleSave } = usePosts();
   const liked = likedIds.has(post.id);
@@ -86,4 +87,9 @@ export default function PostCard({ post }) {
       </div>
     </article>
   );
+}
+
+// Isolates render errors to this card (see ErrorBoundary).
+export default function PostCard(props) {
+  return <ErrorBoundary fallback={null}><PostCardInner {...props} /></ErrorBoundary>;
 }

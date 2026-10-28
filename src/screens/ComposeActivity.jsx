@@ -1,10 +1,17 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { useActivities } from "../store/ActivitiesContext.jsx";
 import { Plus } from "../components/Icons.jsx";
 
 const SKILLS = ["All Levels", "Beginner", "Intermediate", "Advanced"];
+
+// "YYYY-MM-DDTHH:mm" in local time — the format <input type="datetime-local"> uses.
+const nowLocal = () => {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 
 export default function ComposeActivity() {
   const nav = useNavigate();
@@ -33,11 +40,13 @@ export default function ComposeActivity() {
 
   const submit = async () => {
     if (!canPost) return;
+    // The min attribute isn't enforced everywhere (typed input, some WebViews).
+    if (when && new Date(when).getTime() < Date.now() - 60000) { setError("Pick a date and time in the future."); return; }
     setBusy(true); setError("");
     try {
       await addActivity({ text: text.trim(), location: location.trim(), when, skillLevel: skill, dmOpen, file });
       nav("/app/activities");
-    } catch (e) { setError(e.message || "Could not post."); setBusy(false); }
+    } catch (e) { setError(friendlyError(e, "Your activity couldn't be posted. Please try again.")); setBusy(false); }
   };
 
   return (
@@ -50,19 +59,19 @@ export default function ComposeActivity() {
 
       <div className="flex-1 px-6 pt-2 overflow-y-auto no-scrollbar">
         <label className="block text-sm font-semibold text-ink/80 mb-2">What Are You Planning?</label>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} autoFocus
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} autoFocus maxLength={2000}
           placeholder="e.g. Sunrise hike up Mt Batulao. Who's in?"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted resize-none" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
         <div className="flex gap-2">
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Mount Batulao, Nasugbu"
+          <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="e.g. Mount Batulao, Nasugbu"
             className="flex-1 rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
           <button type="button" onClick={useMyLocation} className="shrink-0 rounded-xl bg-brand-tint text-brand-navy text-[13px] font-semibold px-3">Use my location</button>
         </div>
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Date & Time</label>
-        <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)}
+        <input type="datetime-local" value={when} min={nowLocal()} onChange={(e) => setWhen(e.target.value)}
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Skill Level</label>
