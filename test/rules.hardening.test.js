@@ -62,6 +62,29 @@ describe("profiles", () => {
     await assertFails(setDoc(doc(alice(), "users/alice"), { displayName: "A".repeat(41) }, { merge: true }));
     await assertSucceeds(setDoc(doc(alice(), "users/alice"), { bio: "Sunrise missions only." }, { merge: true }));
   });
+  it("a completely filled-out profile saves (stays under the 1000-expression rules limit)", async () => {
+    await seed((db) => setDoc(doc(db, "users/alice"), userDoc("alice")));
+    const url = "https://firebasestorage.googleapis.com/v0/b/x/o/avatars%2Falice%2Fa.jpg";
+    const full = {
+      displayName: "Maya Rivers", bio: "b".repeat(300), location: "Denver, CO", photos: Array(6).fill(url), photoURL: url,
+      languages: ["English", "Spanish"], pets: "Dog-friendly", interests: ["outdoor", "water", "snow"], subInterests: ["Hiking", "Kayaking"],
+      skillLevels: { outdoor: "Advanced", water: "Beginner" }, experience: { outdoor: "5–10 yrs" },
+      terrain: ["Alpine", "Desert"], intensity: "Hard", pace: "Fast", risk: "Moderate", type2: "Love it", tripDuration: ["Day trips", "Multi-day"],
+      planning: "Planner", fitness: "Athletic", trainingFor: "Rainier in July", availability: ["Weekends"], seasons: ["Summer", "Winter"],
+      leadTime: "A week", willTravel: "Anywhere", style: "Fast and light", lookingFor: ["Partners"], partnerWants: ["Punctual"],
+      dealbreakers: ["Flaky"], certifications: ["WFR"], gearShare: ["Rope"], bucketList: Array(12).fill("Climb something"),
+      recentTrips: "r".repeat(300), prompts: Array(4).fill({ q: "My next adventure is…", a: "Sawtooths" }),
+      whoCanMessage: "verified", verifiedOnly: true, womenOnly: false, updatedAt: ts(),
+    };
+    await assertSucceeds(setDoc(doc(alice(), "users/alice"), full, { merge: true }));
+    await assertSucceeds(setDoc(doc(alice(), "users/alice"), { ...full, bio: "edited" }, { merge: true }));
+  });
+  it("rejects a non-text display name or bio (shown across the app)", async () => {
+    await seed((db) => setDoc(doc(db, "users/alice"), userDoc("alice")));
+    await assertFails(setDoc(doc(alice(), "users/alice"), { displayName: { x: 1 } }, { merge: true }));
+    await assertFails(setDoc(doc(alice(), "users/alice"), { bio: ["x"] }, { merge: true }));
+    await assertFails(setDoc(doc(alice(), "users/alice"), { bucketList: Array(13).fill("x") }, { merge: true }));
+  });
   it("can't delete own profile doc to wipe bad ratings (deletion is server-side)", async () => {
     await seed((db) => setDoc(doc(db, "users/alice"), userDoc("alice", { ratingAvg: 1.2, ratingCount: 9 })));
     await assertFails(deleteDoc(doc(alice(), "users/alice")));

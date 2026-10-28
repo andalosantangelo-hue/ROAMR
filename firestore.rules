@@ -31,18 +31,35 @@ service cloud.firestore {
                                    && v.matches('^(https://(firebasestorage\\.googleapis\\.com|[a-z0-9-]+\\.googleusercontent\\.com)/|http://127\\.0\\.0\\.1:9199/).*'); }
     function optImg(f)         { return !has(f) || d()[f] == null || d()[f] == '' || imgUrl(d()[f]); }
 
+    // Rules allow at most 1000 evaluated expressions per request; a strict per-field
+    // check of all ~40 profile fields exceeded it on a fully filled-out profile, so
+    // every full save was denied. Fields shown across the app (name, photo, bio, home
+    // base, messaging settings) are strictly typed; the rest are size-capped (a
+    // non-list/string/map fails .size() and is denied) and rendered defensively on the
+    // profile page.
     function validUser() {
-      return optStr('displayName', 40) && optImg('photoURL') && optStr('bio', 300) && optStr('location', 80)
-        && optList('photos', 6) && optList('interests', 10) && optList('subInterests', 40)
-        && optMap('skillLevels', 10) && optMap('experience', 10) && optList('prompts', 4)
-        && optList('languages', 12) && optStr('pets', 40) && optList('terrain', 12) && optStr('intensity', 40)
-        && optStr('pace', 40) && optStr('risk', 40) && optStr('type2', 40) && optList('tripDuration', 8)
-        && optStr('planning', 40) && optStr('fitness', 40) && optStr('trainingFor', 80)
-        && optList('availability', 8) && optList('seasons', 4) && optStr('leadTime', 40) && optStr('willTravel', 40)
-        && optStr('style', 40) && optList('lookingFor', 12) && optList('partnerWants', 12) && optList('dealbreakers', 12)
-        && optList('certifications', 20) && optList('gearShare', 20) && optList('bucketList', 12) && optStr('recentTrips', 300)
-        && (!has('whoCanMessage') || d().whoCanMessage in ['everyone', 'verified', 'following'])
-        && optBool('verifiedOnly') && optBool('womenOnly');
+      let x = request.resource.data;
+      return (x.get('displayName', null) == null || (x.displayName is string && x.displayName.size() <= 40))
+        && (x.get('photoURL', null) == null || x.photoURL == '' || imgUrl(x.photoURL))
+        && (x.get('bio', '') is string && x.get('bio', '').size() <= 300)
+        && (x.get('location', '') is string && x.get('location', '').size() <= 80)
+        && x.get('whoCanMessage', 'everyone') in ['everyone', 'verified', 'following']
+        && x.get('verifiedOnly', false) is bool && x.get('womenOnly', false) is bool
+        && x.get('photos', []).size() <= 6 && x.get('prompts', []).size() <= 4
+        && x.get('interests', []).size() <= 10 && x.get('subInterests', []).size() <= 40
+        && x.get('skillLevels', {}).size() <= 10 && x.get('experience', {}).size() <= 10
+        && x.get('languages', []).size() <= 12 && x.get('terrain', []).size() <= 12
+        && x.get('tripDuration', []).size() <= 8 && x.get('availability', []).size() <= 8
+        && x.get('seasons', []).size() <= 4 && x.get('lookingFor', []).size() <= 12
+        && x.get('partnerWants', []).size() <= 12 && x.get('dealbreakers', []).size() <= 12
+        && x.get('certifications', []).size() <= 20 && x.get('gearShare', []).size() <= 20
+        && x.get('bucketList', []).size() <= 12 && x.get('recentTrips', '').size() <= 300
+        && x.get('trainingFor', '').size() <= 80 && x.get('pets', '').size() <= 40
+        && x.get('intensity', '').size() <= 40 && x.get('pace', '').size() <= 40
+        && x.get('risk', '').size() <= 40 && x.get('type2', '').size() <= 40
+        && x.get('planning', '').size() <= 40 && x.get('fitness', '').size() <= 40
+        && x.get('leadTime', '').size() <= 40 && x.get('willTravel', '').size() <= 40
+        && x.get('style', '').size() <= 40;
     }
 
     // Collection-group reads of the current user's own presence docs
