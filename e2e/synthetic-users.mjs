@@ -89,7 +89,9 @@ async function expectCleanError(page, re) {
 
 // Opens every Edit Profile section and fills it like a thorough user would.
 async function fillWholeProfile(page, u) {
-  for (const t of ["Activities & experience", "Your outdoor style", "Availability & travel", "Looking for", "Trust & gear", "Prompts", "Bucket list & recent trips"]) {
+  // Activity chips are left alone: unticking every activity is (correctly) refused.
+  await page.getByRole("button", { name: /Activities . experience/ }).first().click({ timeout: 4000 }).catch(() => {});
+  for (const t of ["Your outdoor style", "Availability & travel", "Looking for", "Trust & gear", "Prompts", "Bucket list & recent trips"]) {
     const hdr = page.getByRole("button", { name: new RegExp(t.replace(/[&]/g, ".")) }).first();
     await hdr.click({ timeout: 4000 }).catch(() => {});
     await page.waitForTimeout(150);
@@ -309,7 +311,8 @@ async function phase2(browser, u, ids) {
     });
     if (u.i % 3 === 1) await step(u, page, "leave_review", async () => {
       await spaGo(page, `/review/${target}`);
-      for (const b of await page.getByRole("button", { name: /^[45] stars$/ }).all()) await b.click().catch(() => {});
+      await page.getByRole("button", { name: "5 stars" }).first().waitFor();
+      for (const b of await page.getByRole("button", { name: "5 stars" }).all()) await b.click();
       await page.getByPlaceholder("What should others know?").fill("Reliable, on time, great beta for the route.");
       await page.getByRole("button", { name: /Submit review/ }).click();
       await page.waitForURL((url) => !url.pathname.includes("/review/"), { timeout: 8000 });
@@ -409,7 +412,7 @@ async function getBrowser() {
   if (recycling) await recycling;
   if (!browser || !browser.isConnected() || sessions >= 5) {
     recycling = (async () => {
-      const old = browser; browser = await chromium.launch(); sessions = 0;
+      const old = browser; browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || undefined }); sessions = 0;
       if (old) setTimeout(() => old.close().catch(() => {}), 120000); // let in-flight sessions finish
     })();
     await recycling; recycling = null;

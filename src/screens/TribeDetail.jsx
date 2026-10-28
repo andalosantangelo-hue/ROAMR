@@ -23,6 +23,17 @@ export default function TribeDetail() {
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
   const joined = joinedIds.has(id);
+  // The chat opens only once the SERVER has recorded the membership. "Joined" flips
+  // instantly on tap, and subscribing then was denied by the rules (membership not
+  // written yet) and never retried, so messages never appeared after joining.
+  const [memberConfirmed, setMemberConfirmed] = useState(false);
+  const uid = user?.uid;
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(doc(db, "tribes", id, "members", uid), { includeMetadataChanges: true },
+      (s) => setMemberConfirmed(s.exists() && !s.metadata.hasPendingWrites),
+      () => setMemberConfirmed(false));
+  }, [id, uid]);
 
   useEffect(() => {
     const local = tribes.find((t) => t.id === id);
@@ -31,14 +42,14 @@ export default function TribeDetail() {
   }, [id, tribes]);
 
   useEffect(() => {
-    if (!joined) { setMessages([]); return; }
+    if (!joined || !memberConfirmed) { setMessages([]); return; }
     const q = query(collection(db, "tribes", id, "messages"), orderBy("createdAt", "asc"), limitToLast(100)); // newest 100 (limit() returned the oldest 200, freezing the chat)
     return onSnapshot(q,
       (snap) => setMessages(snap.docs.map((d) => ({
         id: d.id, uid: d.data().authorId, name: d.data().authorName, text: d.data().text, createdAt: d.data().createdAt,
       }))),
       (e) => console.warn("tribe messages:", e.message));
-  }, [id, joined]);
+  }, [id, joined, memberConfirmed]);
 
   // Hide messages from people you've blocked.
   const shownMessages = useMemo(
@@ -49,7 +60,7 @@ export default function TribeDetail() {
   const send = async (text) => {
     await addDoc(collection(db, "tribes", id, "messages"), {
       authorId: user.uid,
-      authorName: profile?.displayName || user.displayName || "Explorer",
+      authorName: (profile?.displayName || user.displayName || "Explorer").slice(0, 40),
       authorPhotoURL: profile?.photoURL || user.photoURL || "",
       text, createdAt: serverTimestamp(),
     });
@@ -113,7 +124,9 @@ export default function TribeDetail() {
 
       {notice && <p className="text-center text-brand-green text-[13px] py-2 px-4 bg-brand-tint">{notice}</p>}
 
-      {joined ? (
+      {joined && !memberConfirmed ? (
+        <div className="flex-1 grid place-items-center text-muted text-sm">Joining…</div>
+      ) : joined ? (
         <ChatThread messages={shownMessages} meUid={user?.uid} onSend={send} showNames
           onAuthorClick={(m) => m.uid && nav(`/u/${m.uid}`)} placeholder="Message the tribe…" />
       ) : (

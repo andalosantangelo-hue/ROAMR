@@ -167,7 +167,7 @@ export default function PublicProfile() {
             ) : (
               <div className="flex items-center gap-2">
                 <FollowButton targetUid={uid} variant="pill" />
-                <button onClick={message} disabled={opening} className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5 active:scale-[0.98] transition"><Comment className="w-4 h-4" /> Message</button>
+                <button onClick={message} disabled={opening} className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5 active:scale-[0.98] transition"><Comment className="w-4 h-4" /> {opening ? "Opening…" : "Message"}</button>
               </div>
             )}
           </div>
