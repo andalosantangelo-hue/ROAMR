@@ -150,6 +150,9 @@ function EditProfileForm() {
   const save = async () => {
     const name = titleCase(f.name);
     if (name.length < 2 || name.length > 40) { setError("Your name needs to be between 2 and 40 characters."); return; }
+    // Same rule as onboarding. Saving with none used to send the user back through
+    // onboarding on their next tap, with no explanation.
+    if (!f.interests.length) { setError("Pick at least one activity you're into."); return; }
     setBusy(true); setError("");
     try {
       const uid = auth.currentUser.uid;
