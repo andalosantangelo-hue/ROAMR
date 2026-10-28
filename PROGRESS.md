@@ -1,7 +1,7 @@
 # ROAMR — Progress / session handoff
 
 Keep this short. Overwrite stale sections instead of appending history (git log has history).
-Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64 (CI fix). CI is green on `main`.
+Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64 (CI fix). CI is green on `main`. Deployed to roamr-55afb on 2026-10-28 (rules, indexes, storage, 28 functions incl. new `shopCatalog`, hosting).
 
 > ⚠️ If a local session (Windows/OneDrive) has uncommitted work, push it and update this file.
 
@@ -17,6 +17,7 @@ Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64
 - Tests (vitest + rules tests) and CI (lint, test, coverage gate, build, audit, gitleaks).
 
 ## Open — needs code
+- [ ] **URGENT:** Cloud Functions Node.js 20 runtime is decommissioned 2026-10-30 — after that, functions can't be redeployed. Move `functions/package.json` + `firebase.json` to Node 22 and upgrade `firebase-functions` (breaking changes), test with emulator, redeploy.
 - [ ] Before real traffic (from #62): paid map tiles + geocoder instead of OSM/Photon, video transcoding (also strips GPS metadata), geohash queries for the map.
 - [ ] Firestore field-validation rules + move `fcmTokens`/`notificationPrefs` to private subcollection — verify with `npm run test:rules` first (CHECKLIST-STATUS.md).
 - [ ] Account-deletion fan-out as a Cloud Function (other users' presence docs, Storage cleanup) — client-side only today.
@@ -24,7 +25,7 @@ Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64
 - [ ] README.md screen checklist is stale (all screens exist) — fix or delete.
 
 ## Open — needs accounts/console (not code)
-- [ ] Deploy rules + indexes, then hosting → https://roamr-55afb.web.app
+- [x] Deploy rules + indexes, then hosting → https://roamr-55afb.web.app (2026-10-28)
 - [ ] Enable Google + Apple providers; Apple Services ID (docs/NATIVE-AUTH-SETUP.md)
 - [ ] App Check enforcement + `VITE_RECAPTCHA_SITE_KEY`; Sentry project + `VITE_SENTRY_DSN`
 - [ ] Monitoring alerts + uptime check; one backup restore drill
@@ -33,11 +34,12 @@ Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64
 - [ ] Confirm Premium is display-only at launch (no payment processor)
 
 ## Next up (pick from here)
-1. Deploy #62 in order: `firebase deploy --only firestore:rules,storage,functions`, then `npm run build && firebase deploy --only hosting`.
+1. Node 22 functions upgrade (see URGENT above).
 2. Device test pass on the live link (posting with video, map, apparel checkout) → log bugs in ROAMR-BACKLOG.md.
 3. Close or merge the ~45 stale remote branches so sessions stop tripping over old versions.
 
 ## Decisions worth remembering
+- Deploys: Actions → Deploy workflow (needs `FIREBASE_SERVICE_ACCOUNT` secret to be valid key JSON; first attempt failed on a bad paste) or `firebase deploy` from a logged-in machine.
 - Firebase only, no custom server (docs/adr/0002).
 - Rate limits fail open, so a bug can't lock out real users.
 - Coverage gate is scoped to the unit-testable core only; `image.js` is excluded because it's canvas code.
