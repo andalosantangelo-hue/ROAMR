@@ -45,7 +45,9 @@ for (let i = 0; i < 100; i++) {
 }
 // edge cases
 const edge = path.join(OUT, "edge"); fs.mkdirSync(edge, { recursive: true });
-await sharp(Buffer.from(svg(999))).resize(6000, 6000).png({ compressionLevel: 0 }).toFile(path.join(edge, "huge_6000px.png")); // >10MB
+// ~19 MB photo-like noise: over Storage's 10 MB limit, so the app must downscale it.
+const noise = Buffer.alloc(2500 * 2500 * 3); (await import("node:crypto")).randomFillSync(noise);
+await sharp(noise, { raw: { width: 2500, height: 2500, channels: 3 } }).png().toFile(path.join(edge, "huge_6000px.png"));
 await sharp(Buffer.from(svg(998))).resize(400, 4000, { fit: "fill" }).jpeg().toFile(path.join(edge, "tall_400x4000.jpg"));
 fs.writeFileSync(path.join(edge, "corrupt.jpg"), Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(5000, 7)]));
 fs.writeFileSync(path.join(edge, "not_an_image.png"), "this is plain text pretending to be a png");
