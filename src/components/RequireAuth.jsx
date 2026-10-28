@@ -14,7 +14,7 @@ export default function RequireAuth({ children }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" replace state={{ from: here }} />;
+  if (!user) return <Navigate to="/login" replace state={window.__roamrSigningOut ? null : { from: here }} />;
   // Someone who quit (or hit an error) mid-onboarding has no name/interests; send them
   // back to finish instead of into an app that shows them as "Explorer".
   if (profileStatus === "ready" && needsOnboarding(profile) && loc.pathname !== "/onboarding") {

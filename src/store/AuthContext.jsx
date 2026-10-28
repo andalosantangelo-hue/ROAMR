@@ -8,10 +8,10 @@ import { Capacitor } from "@capacitor/core";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
   doc, getDoc, setDoc, deleteDoc, addDoc, collection, getDocs, query, where,
-  onSnapshot, orderBy, limit, serverTimestamp, deleteField, terminate, clearIndexedDbPersistence,
+  onSnapshot, orderBy, limit, serverTimestamp, deleteField,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { auth, db, functions } from "../lib/firebase.js";
+import { auth, db, functions, WIPE_CACHE_FLAG } from "../lib/firebase.js";
 import { unregisterPush } from "../lib/push.js";
 import { toggleSet } from "../lib/util.js";
 
@@ -55,10 +55,12 @@ async function ensureUserDoc(user) {
   return { isNew: needsOnboarding({ ...data, ...fill }), interests: data.interests || [] };
 }
 
-// Wipes this device's offline Firestore cache (DMs, trip plans, medical info) and
-// reloads, so nothing from the previous account survives a sign-out on a shared phone.
-async function clearLocalData() {
-  try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) { console.warn("cache clear:", e.message); }
+// Leaves the app with this device's offline cache (DMs, trip plans, medical info)
+// scheduled for deletion on the next load (see firebase.js), so nothing from the
+// previous account survives a sign-out on a shared phone.
+function leaveAndWipeCache() {
+  try { localStorage.setItem(WIPE_CACHE_FLAG, "1"); } catch { /* private mode: no persistent cache */ }
+  window.location.replace("/login");
 }
 
 export function AuthProvider({ children }) {
@@ -175,11 +177,12 @@ export function AuthProvider({ children }) {
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
   const logout = async () => {
     const uid = auth.currentUser?.uid;
+    // A deliberate sign-out must not record "return to this page" for the next person
+    // who signs in on this device (RequireAuth checks this).
+    window.__roamrSigningOut = true;
     await unregisterPush(uid);
-    await signOut(auth);
-    await clearLocalData();
-    // Firestore can't be used after terminate(); a fresh page load re-initialises it.
-    window.location.replace("/login");
+    await signOut(auth).catch((e) => console.warn("signOut:", e.message));
+    leaveAndWipeCache();
   };
 
   // `remove` deletes fields from the public doc (e.g. migrating `gender` to private).
@@ -236,9 +239,9 @@ export function AuthProvider({ children }) {
       }
       throw new Error("We couldn't delete your account. Please try again.", { cause: e });
     }
+    window.__roamrSigningOut = true;
     await signOut(auth).catch(() => {});
-    await clearLocalData();
-    window.location.replace("/login");
+    leaveAndWipeCache();
   };
 
   // GDPR data portability — download everything we hold about you as JSON.

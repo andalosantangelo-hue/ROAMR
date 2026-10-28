@@ -30,6 +30,17 @@ const firebaseConfig = useEmulators ? {
 
 export const app = initializeApp(firebaseConfig);
 
+// After sign-out / account deletion we set this flag and reload; the offline cache
+// (DMs, trip plans, medical info) is deleted here, BEFORE Firestore opens it. Deleting
+// it from the running app hung, because the open database blocks the delete.
+export const WIPE_CACHE_FLAG = "roamr_wipe_cache";
+try {
+  if (localStorage.getItem(WIPE_CACHE_FLAG) === "1") {
+    localStorage.removeItem(WIPE_CACHE_FLAG);
+    indexedDB.deleteDatabase(`firestore/[DEFAULT]/${firebaseConfig.projectId}/main`);
+  }
+} catch { /* storage unavailable (private mode) — nothing cached to wipe */ }
+
 // App Check (bot/abuse + rate-limit protection). Set VITE_RECAPTCHA_SITE_KEY to enable.
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
