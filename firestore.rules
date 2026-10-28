@@ -9,6 +9,12 @@ service cloud.firestore {
     function keysOnly(allowed) { return request.resource.data.keys().hasOnly(allowed); }
     function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
     function strMax(f, n)      { return request.resource.data[f] is string && request.resource.data[f].size() <= n; }
+    // Optional {lat,lng} map (or null) used by the map view + radius filter.
+    function geoOk() {
+      return !('geo' in request.resource.data) || request.resource.data.geo == null
+        || (request.resource.data.geo is map && request.resource.data.geo.keys().hasOnly(['lat','lng'])
+            && request.resource.data.geo.lat is number && request.resource.data.geo.lng is number);
+    }
 
     // Collection-group reads of the current user's own presence docs
     match /{path=**}/members/{uid}   { allow read: if signedIn(); }
@@ -89,8 +95,11 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && created('authorId')
         && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
-        && keysOnly(['authorId','authorName','authorPhotoURL','title','location','photo','rating','likeCount','commentCount','createdAt'])
-        && strMax('title', 300);
+        && keysOnly(['authorId','authorName','authorPhotoURL','title','body','location','geo','photo','media','rating','likeCount','commentCount','createdAt'])
+        && strMax('title', 300)
+        && (!('body' in request.resource.data) || strMax('body', 2200))
+        && (!('media' in request.resource.data) || (request.resource.data.media is list && request.resource.data.media.size() <= 10))
+        && geoOk();
       allow update: if owns('authorId') && unchanged(['authorId','likeCount','commentCount','createdAt']);
       allow delete: if owns('authorId');
       match /likes/{uid} {
@@ -110,8 +119,8 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && created('authorId')
         && request.resource.data.attendeeCount == 0 && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
-        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
-        && strMax('text', 2000);
+        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','geo','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
+        && strMax('text', 2000) && geoOk();
       allow update: if owns('authorId') && unchanged(['authorId','attendeeCount','recentAttendees','likeCount','commentCount','createdAt']);
       allow delete: if owns('authorId');
       match /attendees/{uid} {

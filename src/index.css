@@ -14,3 +14,23 @@ body {
 /* hide scrollbars inside the phone canvas */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ---- Activities map (Leaflet) ---- */
+.roamr-pin {
+  width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
+  background: #5A7E2D; transform: rotate(-45deg);
+  display: grid; place-items: center;
+  box-shadow: 0 6px 14px -4px rgba(23, 49, 66, 0.45);
+  border: 2px solid #fff;
+}
+.roamr-pin span {
+  transform: rotate(45deg); color: #fff; font: 700 13px/1 Poppins, system-ui, sans-serif;
+}
+.leaflet-container .leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: 0 10px 28px -10px rgba(23, 49, 66, 0.35); }
+.leaflet-container .leaflet-popup-content { margin: 12px 14px; font-family: Poppins, system-ui, sans-serif; }
+.roamr-pop .t { margin: 0 0 4px; font-weight: 600; color: #1B2A33; font-size: 13px; line-height: 1.35; }
+.roamr-pop .m { margin: 0 0 2px; color: #626E79; font-size: 11px; }
+.roamr-pop button {
+  margin-top: 8px; width: 100%; min-height: 36px; border-radius: 999px;
+  background: #5A7E2D; color: #fff; font-weight: 600; font-size: 12px; border: 0;
+}

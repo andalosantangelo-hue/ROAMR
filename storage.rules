@@ -6,12 +6,18 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
     function isUser(uid) { return request.auth != null && request.auth.uid == uid; }
+    // Post media: re-encoded photos (incl. 360° panoramas), 4K/6K video, audio.
+    function postMedia() {
+      return (request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)') && request.resource.size < 25 * 1024 * 1024)
+        || (request.resource.contentType.matches('video/.*') && request.resource.size < 2 * 1024 * 1024 * 1024)
+        || (request.resource.contentType.matches('audio/.*') && request.resource.size < 200 * 1024 * 1024);
+    }
 
     // Tribe images are scoped to the uploader's uid so one user can't overwrite
     // another's images or dump arbitrary objects under the shared tribes/ prefix.
     match /tribes/{uid}/{f=**}     { allow read: if true; allow write: if isUser(uid) && img(); }
     match /avatars/{uid}/{f=**}    { allow read: if true; allow write: if isUser(uid) && img(); }
-    match /posts/{uid}/{f=**}      { allow read: if true; allow write: if isUser(uid) && img(); }
+    match /posts/{uid}/{f=**}      { allow read: if true; allow write: if isUser(uid) && postMedia(); }
     match /activities/{uid}/{f=**} { allow read: if true; allow write: if isUser(uid) && img(); }
     match /listings/{uid}/{f=**}   { allow read: if true; allow write: if isUser(uid) && img(); }
     // Verification selfies are PRIVATE — only the owner (and Admin via console) can read.

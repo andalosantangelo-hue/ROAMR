@@ -3,10 +3,9 @@ import {
   collection, collectionGroup, addDoc, setDoc, deleteDoc, doc,
   onSnapshot, query, orderBy, where, limit, serverTimestamp,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../lib/firebase.js";
+import { db } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
-import { compressImage } from "../lib/image.js";
+import { uploadMedia } from "../lib/media.js";
 import { toggleSet } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -22,13 +21,15 @@ export function PostsProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Rules require sign-in to read; (re)subscribe once auth resolves / user changes.
+    if (!user) return undefined;
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20));
     return onSnapshot(
       q,
       (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (err) => { console.warn("Firestore posts:", err.message); setLoading(false); }
     );
-  }, []);
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) { setLikedIds(new Set()); setSavedIds(new Set()); return; }
@@ -55,23 +56,22 @@ export function PostsProvider({ children }) {
   const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const posts = base.filter((p) => !blockedIds.has(p.authorId));
 
-  const addPost = async ({ title, location, rating, file }) => {
+  const addPost = async ({ title, body = "", location, geo = null, rating, media = [], file, onProgress }) => {
     if (!user) return;
-    let photo = null;
-    if (file) {
-      const up = await compressImage(file);
-      const snap = await uploadBytes(ref(storage, `posts/${user.uid}/${Date.now()}-${up.name}`), up);
-      photo = await getDownloadURL(snap.ref);
-    }
+    // Legacy single-photo callers still work.
+    const items = media.length ? media : (file ? [{ kind: "image", file, url: URL.createObjectURL(file) }] : []);
+    const uploaded = items.length ? await uploadMedia(user.uid, items, onProgress) : [];
+    const cover = uploaded.find((m) => m.type === "image" && !m.is360) || uploaded.find((m) => m.poster) || uploaded.find((m) => m.type === "image");
     await addDoc(collection(db, "posts"), {
       authorId: user.uid,
       authorName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
-      title, location: location || "", photo, rating: rating || 0,
+      title, body: body || "", location: location || "", geo: geo || null,
+      photo: cover ? (cover.poster || cover.url) : null, media: uploaded, rating: rating || 0,
       likeCount: 0, commentCount: 0, createdAt: serverTimestamp(),
     });
     tapSuccess();
-    track("create_success", { type: "post" });
+    track("create_success", { type: "post", media: uploaded.length });
   };
 
   const toggleLike = async (post) => {

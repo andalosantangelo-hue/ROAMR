@@ -21,13 +21,15 @@ export function TribesProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Rules require sign-in to read; (re)subscribe once auth resolves / user changes.
+    if (!user) return undefined;
     const q = query(collection(db, "tribes"), orderBy("createdAt", "desc"), limit(50));
     return onSnapshot(
       q,
       (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (err) => { console.warn("Firestore tribes:", err.message); setLoading(false); }
     );
-  }, []);
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) { setJoinedIds(new Set()); return; }

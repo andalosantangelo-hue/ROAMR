@@ -13,7 +13,7 @@
     "cap:android": "npm run build && cap sync android && cap open android",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run test/rules.test.js\""
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.mjs\""
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",
@@ -26,6 +26,7 @@
     "@capacitor/push-notifications": "^8.1.1",
     "@sentry/react": "^10.57.0",
     "firebase": "^12.14.0",
+    "leaflet": "^1.9.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0"

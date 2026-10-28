@@ -3,7 +3,6 @@ import BottomNav from "./BottomNav.jsx";
 import StatusBar from "./StatusBar.jsx";
 import TopBar from "./TopBar.jsx";
 import Fab from "./Fab.jsx";
-import VerifyBanner from "./VerifyBanner.jsx";
 import { FeedScopeProvider } from "../store/FeedScopeContext.jsx";
 
 const FEED_TABS = ["/app/home", "/app/activities", "/app/tribes"];
@@ -28,8 +27,7 @@ export default function TabsLayout() {
       <div className={`relative flex flex-col h-full ${isFeed ? "bg-brand-tint" : "bg-white"}`}>
         <StatusBar />
         {isFeed && <TopBar />}
-        <VerifyBanner />
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
           <Outlet />
         </div>
         {showFab && <div className="absolute right-4 bottom-[92px]"><Fab onClick={onFab} /></div>}
