@@ -1,0 +1,47 @@
+name: Deploy
+
+# Manual only: Actions tab → Deploy → Run workflow. Nothing deploys on merge.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "What to deploy"
+        type: choice
+        default: all
+        options: [all, backend, hosting]
+
+concurrency: deploy-production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm ci
+        working-directory: functions
+
+      # Service-account key JSON from Firebase console → Project settings → Service accounts.
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # Rules, indexes and functions go first so the new client never writes fields the rules reject.
+      - name: Deploy rules, indexes, storage, functions
+        if: inputs.target != 'hosting'
+        run: npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project roamr-55afb --non-interactive
+
+      - name: Build web app
+        if: inputs.target != 'backend'
+        run: npm run build
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+
+      - name: Deploy hosting
+        if: inputs.target != 'backend'
+        run: npx firebase deploy --only hosting --project roamr-55afb --non-interactive
