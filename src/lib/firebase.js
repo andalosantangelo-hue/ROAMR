@@ -1,14 +1,24 @@
 import { initializeApp } from "firebase/app";
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator,
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
-import { getFunctions } from "firebase/functions";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
+// Local development / CI: VITE_USE_EMULATORS=1 points the app at the Firebase
+// emulators under a "demo-" project, which can never reach production data.
+const useEmulators = import.meta.env.VITE_USE_EMULATORS === "1";
+
 // Firebase web config is safe to ship in client code.
-const firebaseConfig = {
+const firebaseConfig = useEmulators ? {
+  apiKey: "demo-key",
+  authDomain: "demo-roamr.firebaseapp.com",
+  projectId: "demo-roamr",
+  storageBucket: "demo-roamr.appspot.com",
+  appId: "demo-app",
+} : {
   apiKey: "AIzaSyB25GLlLAoUiyn8u8NcdrHnLR7GSZJIqDo",
   authDomain: "roamr-55afb.firebaseapp.com",
   projectId: "roamr-55afb",
@@ -40,6 +50,13 @@ export const db = initializeFirestore(app, {
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const functions = getFunctions(app);
+
+if (useEmulators) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}
 
 const analyticsConsent = typeof localStorage !== "undefined" && localStorage.getItem("roamr_analytics_consent") === "yes";
 isSupported().then((ok) => { if (ok && analyticsConsent) getAnalytics(app); }).catch(() => {});
