@@ -2,7 +2,7 @@ import { useState } from "react";
 import SearchBar from "../components/SearchBar.jsx";
 import FilterSheet from "../components/FilterSheet.jsx";
 import ActivityCard from "../components/ActivityCard.jsx";
-import { PostSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, ActivityCardSkeleton } from "../components/skeletons";
 import { useActivities } from "../store/ActivitiesContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
@@ -43,7 +43,9 @@ export default function Activities() {
         onFilter={() => setSheet(true)} filterActive={active} />
       <div className="space-y-4 mt-4">
         {loading ? (
-          [0, 1, 2].map((i) => <PostSkeleton key={i} />)
+          <SkeletonRegion label="Loading activities" className="space-y-4">
+            {[0, 1, 2].map((i) => <ActivityCardSkeleton key={i} />)}
+          </SkeletonRegion>
         ) : filtered.length === 0 ? (
           (q || active) ? <p className="text-center text-muted text-sm mt-12">No activities match your filters.</p>
             : SCOPE_EMPTY[scope] ? <p className="text-center text-muted text-sm mt-12">{SCOPE_EMPTY[scope]}</p>

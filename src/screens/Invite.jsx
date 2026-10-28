@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
+import { SkeletonRegion, InviteSkeleton } from "../components/skeletons";
 import { useTribes } from "../store/TribesContext.jsx";
 import { useActivities } from "../store/ActivitiesContext.jsx";
 
@@ -48,7 +49,7 @@ export default function Invite() {
       <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
         <Logo size={60} showWord={false} className="mb-4" />
         {loading ? (
-          <p className="text-muted">Loading invite…</p>
+          <SkeletonRegion label="Loading invite" className="w-full"><InviteSkeleton /></SkeletonRegion>
         ) : !item ? (
           <>
             <h1 className="text-xl font-extrabold text-brand-navy mb-1">Invite not found</h1>

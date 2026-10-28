@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useListings } from "../store/ListingsContext.jsx";
 import SearchBar from "../components/SearchBar.jsx";
-import { GridSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, ListingCardSkeleton } from "../components/skeletons";
 import { Market } from "../components/Icons.jsx";
 
 const TABS = [
@@ -81,7 +81,9 @@ export default function Marketplace() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <GridSkeleton key={i} />)}</div>
+            <SkeletonRegion label="Loading gear" className="grid grid-cols-2 gap-3">
+              {[0, 1, 2, 3].map((i) => <ListingCardSkeleton key={i} />)}
+            </SkeletonRegion>
           ) : shown.length === 0 ? (
             <div className="flex flex-col items-center text-center mt-16 px-8">
               <span className="w-20 h-20 rounded-2xl bg-brand-navy text-brand-greenBright grid place-items-center mb-5">

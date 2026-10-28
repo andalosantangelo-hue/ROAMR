@@ -8,6 +8,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import { Send } from "../components/Icons.jsx";
 import { initials } from "../lib/util.js";
+import { SkeletonRegion, ListRowSkeleton } from "../components/skeletons";
 
 const fmt = (ts) => {
   if (!ts) return "now";
@@ -19,7 +20,7 @@ export default function Comments() {
   const { type, id } = useParams();          // type = "posts" | "activities"
   const nav = useNavigate();
   const { user, profile, blockedIds } = useAuth();
-  const [comments, setComments] = useState([]);
+  const [comments, setComments] = useState(null); // null until the first snapshot (skeleton)
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,11 +30,11 @@ export default function Comments() {
   useEffect(() => {
     const q = query(collection(db, type, id, "comments"), orderBy("createdAt", "asc"), limitToLast(100));
     return onSnapshot(q, (snap) => setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => console.warn("comments:", e.message));
+      (e) => { console.warn("comments:", e.message); setComments([]); });
   }, [type, id]);
-  const visible = comments.filter((c) => !blockedIds?.has(c.authorId));
+  const visible = (comments || []).filter((c) => !blockedIds?.has(c.authorId));
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments.length]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments?.length]);
 
   const send = async (e) => {
     e.preventDefault();
@@ -64,7 +65,11 @@ export default function Comments() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4">
-        {visible.length === 0 ? (
+        {comments === null ? (
+          <SkeletonRegion label="Loading comments" className="space-y-4">
+            {[0, 1, 2].map((i) => <ListRowSkeleton key={i} variant="comment" />)}
+          </SkeletonRegion>
+        ) : visible.length === 0 ? (
           <div className="text-center text-muted mt-16 px-8">
             <p className="font-semibold text-brand-navy">No comments yet</p>
             <p className="text-sm mt-1">Start the conversation.</p>

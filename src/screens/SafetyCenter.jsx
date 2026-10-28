@@ -3,6 +3,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useSafety } from "../store/SafetyContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import { Check, Phone, Info, Gear, ChevronRight, Star } from "../components/Icons.jsx";
+import { SkeletonRegion, SkeletonBox, SkeletonCircle } from "../components/skeletons";
 
 const Card = ({ icon: Icon, title, sub, onClick, danger, badge }) => (
   <button onClick={onClick} className="w-full flex items-center gap-3 rounded-2xl bg-white shadow-card p-4 text-left">
@@ -20,7 +21,7 @@ const Card = ({ icon: Icon, title, sub, onClick, danger, badge }) => (
 
 export default function SafetyCenter() {
   const nav = useNavigate();
-  const { profile } = useAuth();
+  const { profile, profileStatus } = useAuth();
   const { activeTrip } = useSafety();
   const verified = !!profile?.verified;
 
@@ -41,6 +42,17 @@ export default function SafetyCenter() {
           </button>
         )}
 
+        {profileStatus === "loading" ? (
+          // Verified or not isn't known yet; don't flash "Get verified" at verified users.
+          <SkeletonRegion label="Loading verification status" className="rounded-2xl bg-brand-navy p-4">
+            <div className="flex items-center gap-2">
+              <SkeletonCircle className="w-7 h-7 bg-white/15" />
+              <SkeletonBox className="h-3.5 w-28 rounded-full bg-white/15" />
+            </div>
+            <SkeletonBox className="mt-3 h-2.5 w-full rounded-full bg-white/15" />
+            <SkeletonBox className="mt-2 h-2.5 w-3/4 rounded-full bg-white/15" />
+          </SkeletonRegion>
+        ) : (
         <div className="rounded-2xl bg-brand-navy text-white p-4">
           <div className="flex items-center gap-2">
             <span className={`w-7 h-7 rounded-full grid place-items-center ${verified ? "bg-brand-greenBright text-brand-navy" : "bg-white/20 text-white"}`}><Check className="w-4 h-4" /></span>
@@ -49,6 +61,7 @@ export default function SafetyCenter() {
           <p className="text-white/80 text-[13px] mt-2">{verified ? "Your profile shows a verified badge so partners know you're real." : "A quick selfie check earns a verified badge — the #1 trust signal on ROAMR."}</p>
           {!verified && <button onClick={() => nav("/safety/verify")} className="mt-3 rounded-xl bg-brand-greenBright text-brand-navy font-semibold px-4 py-2 text-sm">Start verification</button>}
         </div>
+        )}
 
         <Card icon={Info} title="Trip plans & check-in" sub="Share a plan, check in safe, auto-alert" onClick={() => nav("/safety/trips")} />
         <Card icon={Phone} title="Emergency contact & medical" sub="Private — shareable per trip" onClick={() => nav("/safety/emergency")} />

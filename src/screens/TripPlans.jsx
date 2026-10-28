@@ -4,6 +4,7 @@ import { useSafety } from "../store/SafetyContext.jsx";
 import { TRIP_STATUS } from "../lib/safety.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { Plus } from "../components/Icons.jsx";
+import { SkeletonRegion, TripCardSkeleton } from "../components/skeletons";
 
 const fmt = (ts) => {
   const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
@@ -35,7 +36,11 @@ export default function TripPlans() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3 space-y-3">
-        {loadingTrips ? <p className="text-center text-muted text-sm mt-10">Loading…</p>
+        {loadingTrips ? (
+          <SkeletonRegion label="Loading trip plans" className="space-y-3">
+            {[0, 1].map((i) => <TripCardSkeleton key={i} />)}
+          </SkeletonRegion>
+        )
           : myTrips.length === 0 ? (
             <div className="text-center mt-16 px-8">
               <p className="font-extrabold text-brand-navy text-lg mb-1">No trip plans yet</p>

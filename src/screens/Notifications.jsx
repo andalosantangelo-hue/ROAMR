@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import { Heart, Comment, Tribes as TribesIcon, Profile as UserIcon, Activities as ActIcon } from "../components/Icons.jsx";
+import { SkeletonRegion, ListRowSkeleton } from "../components/skeletons";
 
 const ICON = { like: Heart, comment: Comment, join: ActIcon, tribe: TribesIcon, follow: UserIcon };
 const fmt = (ts) => {
@@ -13,7 +14,7 @@ const fmt = (ts) => {
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { notifications, markNotifsRead } = useAuth();
+  const { notifications, notificationsLoading, markNotifsRead } = useAuth();
 
   useEffect(() => { markNotifsRead(); /* mark read on open */ }, []); // eslint-disable-line
 
@@ -25,7 +26,11 @@ export default function Notifications() {
         <h1 className="text-lg font-semibold text-brand-navy">Notifications</h1>
       </div>
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {notifications.length === 0 ? (
+        {notificationsLoading ? (
+          <SkeletonRegion label="Loading notifications">
+            {[0, 1, 2, 3, 4, 5].map((i) => <ListRowSkeleton key={i} variant="notification" />)}
+          </SkeletonRegion>
+        ) : notifications.length === 0 ? (
           <div className="text-center text-muted mt-20 px-8">
             <p className="font-semibold text-brand-navy">You're all caught up</p>
             <p className="text-sm mt-1">Likes, comments, joins and follows show up here.</p>

@@ -10,7 +10,7 @@ import { trustLabel, VERIFY_TIERS } from "../lib/safety.js";
 import StatusBar from "../components/StatusBar.jsx";
 import PostCard from "../components/PostCard.jsx";
 import FollowButton from "../components/FollowButton.jsx";
-import { PostSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, PostCardSkeleton, ProfileHeaderSkeleton } from "../components/skeletons";
 import { Profile as UserIcon, Comment, Edit, Check, Star } from "../components/Icons.jsx";
 
 const ACT = Object.fromEntries(P.ACTIVITIES.map((a) => [a.id, a.label]));
@@ -110,6 +110,19 @@ export default function PublicProfile() {
             <p className="text-sm text-muted mt-1">The account may have been deleted.</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (loadingP) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <StatusBar />
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
+          <h1 className="text-lg font-semibold text-brand-navy">Profile</h1>
+        </div>
+        <SkeletonRegion label="Loading profile" className="flex-1 overflow-hidden"><ProfileHeaderSkeleton /></SkeletonRegion>
       </div>
     );
   }
@@ -327,7 +340,7 @@ export default function PublicProfile() {
 
         <div className="px-4 py-5 mt-3 space-y-4 border-t border-black/5">
           <Heading>{isMe ? "My posts" : "Posts"}</Heading>
-          {loadingPosts ? [0, 1].map((i) => <PostSkeleton key={i} />)
+          {loadingPosts ? <SkeletonRegion label="Loading posts" className="space-y-4">{[0, 1].map((i) => <PostCardSkeleton key={i} />)}</SkeletonRegion>
             : posts.length === 0 ? <p className="text-center text-muted text-sm mt-2">{isMe ? "You haven't posted yet." : "No posts yet."}</p>
               : posts.map((post) => <PostCard key={post.id} post={post} />)}
         </div>

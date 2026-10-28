@@ -8,6 +8,7 @@ import { titleCase } from "../lib/util.js";
 import * as P from "../lib/profile.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { Plus, Check, ChevronDown } from "../components/Icons.jsx";
+import { SkeletonRegion, FormSkeleton } from "../components/skeletons";
 
 /* ---- small building blocks ---- */
 function Seg({ options, value, onChange }) {
@@ -71,11 +72,15 @@ export default function EditProfile() {
         <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <h1 className="text-lg font-semibold text-brand-navy">Edit Profile</h1>
       </div>
-      <div className="flex-1 grid place-items-center px-8 text-center">
-        {profileStatus === "error"
-          ? <p className="text-sm text-ink/80">We couldn't load your profile. Check your connection, then go back and try again.</p>
-          : <p className="text-sm text-muted">Loading your profile…</p>}
-      </div>
+      {profileStatus === "error" ? (
+        <div className="flex-1 grid place-items-center px-8 text-center">
+          <p className="text-sm text-ink/80">We couldn't load your profile. Check your connection, then go back and try again.</p>
+        </div>
+      ) : (
+        <SkeletonRegion label="Loading your profile" className="flex-1 px-4 pt-3 overflow-hidden">
+          <FormSkeleton />
+        </SkeletonRegion>
+      )}
     </div>
   );
 }

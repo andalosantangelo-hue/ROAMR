@@ -69,6 +69,7 @@ export function AuthProvider({ children }) {
   const [blockedIds, setBlockedIds] = useState(new Set());
   const [followingIds, setFollowingIds] = useState(new Set());
   const [notifications, setNotifications] = useState([]);
+  const [notifsLoaded, setNotifsLoaded] = useState(false); // first snapshot arrived (drives the skeleton)
   const [loading, setLoading] = useState(true);
   // "loading" until the first profile snapshot, "ready" after, "error" if it failed.
   // Edit Profile only renders its form when "ready", so a failed load can't save an
@@ -112,11 +113,11 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    if (!user) { setNotifications([]); return; }
+    if (!user) { setNotifications([]); setNotifsLoaded(false); return; }
     return onSnapshot(
       query(collection(db, "users", user.uid, "notifications"), orderBy("createdAt", "desc"), limit(30)),
-      (snap) => setNotifications(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => console.warn("notifications:", e.message)
+      (snap) => { setNotifications(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setNotifsLoaded(true); },
+      (e) => { console.warn("notifications:", e.message); setNotifsLoaded(true); }
     );
   }, [user]);
 
@@ -277,7 +278,7 @@ export function AuthProvider({ children }) {
       emailMethods, signInEmail, signUpEmail, googleSignIn, appleSignIn,
       resetPassword, logout, saveInterests, saveProfile, savePrivate,
       reportContent, blockUser, unblockUser, deleteAccount, exportMyData, resendVerification, followingIds, toggleFollow,
-      notifications, unreadCount, markNotifsRead,
+      notifications, notificationsLoading: !!user && !notifsLoaded, unreadCount, markNotifsRead,
     }}>
       {children}
     </AuthContext.Provider>
