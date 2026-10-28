@@ -68,7 +68,9 @@ async function pool(items, n, fn) { let k = 0; await Promise.all(Array.from({ le
 const future = (d) => { const x = new Date(Date.now() + d * 864e5); x.setMinutes(0); return x.toISOString().slice(0, 16); };
 
 async function signIn(page, u) {
-  await page.goto(`${BASE}/login`);
+  // Sign-out reloads the app to /login by itself; don't race that navigation.
+  if (!/\/login$/.test(new URL(page.url()).pathname)) await page.goto(`${BASE}/login`);
+  await page.getByPlaceholder("Email").waitFor();
   await page.getByPlaceholder("Email").fill(u.email);
   await page.getByPlaceholder("Password").fill(u.pw);
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
@@ -152,7 +154,8 @@ async function phase1(browser, u) {
       // the user then swaps in a normal photo and saves successfully.
       if (/corrupt|not_an_image|heic/.test(path.basename(u.avatar))) {
         u.edgeMessage = await expectCleanError(page, /photo|image|HEIC|JPG/i);
-        await page.getByRole("button", { name: "Remove photo" }).first().click();
+        // 24px "×" target (below the 44px touch guideline) — tap it directly.
+        await page.getByRole("button", { name: "Remove photo" }).first().dispatchEvent("click");
         await page.locator('input[type="file"]').first().setInputFiles(path.join(AVATARS, avatars[u.i % avatars.length]));
         await page.waitForTimeout(800);
         await page.getByRole("button", { name: /Save profile/ }).click();
@@ -241,6 +244,7 @@ async function phase1(browser, u) {
       await spaGo(page, "/app/profile");
       await page.getByRole("button", { name: "Sign Out" }).click();
       await page.waitForURL(/\/login/);
+      await page.waitForLoadState("load"); await page.waitForTimeout(1000); // the app reloads after wiping its cache
       await signIn(page, u);
     });
   } finally { await ctx.close(); }
@@ -432,6 +436,7 @@ if (process.argv.includes("--resume")) {
   // Snapshot the emulator data so a later crash only costs one phase
   // (restart the emulators with --import <dir> and run with --resume).
   const snap = path.join(DIR, ".snapshots", "after-phase1");
+  fs.mkdirSync(path.dirname(snap), { recursive: true });
   await fetch("http://127.0.0.1:4400/_admin/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: snap, initiatedBy: "export" }) })
     .then((r) => console.log(`snapshot after phase 1: ${r.ok ? snap : "failed " + r.status}`)).catch((e) => console.log("snapshot failed:", e.message));
 }

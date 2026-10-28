@@ -285,25 +285,30 @@ exports.onActJoinCreate = onDocumentCreated("activities/{id}/attendees/{uid}", (
   const a = e.data && e.data.data();
   const meDoc = { uid, displayName: (a && a.displayName) || null, photoURL: (a && a.photoURL) || null };
   const ref = db.doc(`activities/${id}`);
+  // The count is a plain atomic increment (always applied, once per event). It used to
+  // ride inside the recentAttendees transaction, which can give up under contention
+  // when many people join at once — losing the count change (seen as 10 vs 9 actual).
+  await bump(`activities/${id}`, "attendeeCount", 1);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) return;
     const cur = snap.data().recentAttendees || [];
     const next = [meDoc, ...cur.filter((x) => x.uid !== uid)].slice(0, RECENT_CAP); // bounded, uid-keyed
-    tx.update(ref, { attendeeCount: FieldValue.increment(1), recentAttendees: next });
-  }).catch((err) => logger.warn("join count failed", { id, err: err.message }));
+    tx.update(ref, { recentAttendees: next });
+  }).catch((err) => logger.warn("recent attendees update failed", { id, err: err.message }));
   const act = (await ref.get()).data();
   if (act) await notifyAndRecord(act.authorId, uid, { type: "join", targetId: id, prefKey: "activityJoin", title: "Someone's joining", body: `${(a && a.displayName) || "Someone"} joined your activity`, data: { type: "activity", id }, text: `${(a && a.displayName) || "Someone"} joined your activity`, link: `/comments/activities/${id}` });
 }));
 exports.onActJoinDelete = onDocumentDeleted("activities/{id}/attendees/{uid}", (e) => once(e, async () => {
   const { id, uid } = e.params;
   const ref = db.doc(`activities/${id}`);
+  await bump(`activities/${id}`, "attendeeCount", -1);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) return;
     const cur = snap.data().recentAttendees || [];
-    tx.update(ref, { attendeeCount: FieldValue.increment(-1), recentAttendees: cur.filter((x) => x.uid !== uid) });
-  }).catch((err) => logger.warn("leave count failed", { id, err: err.message }));
+    tx.update(ref, { recentAttendees: cur.filter((x) => x.uid !== uid) });
+  }).catch((err) => logger.warn("recent attendees update failed", { id, err: err.message }));
 }));
 
 /* ---- Tribes: members ---- */
