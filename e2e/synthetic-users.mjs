@@ -159,8 +159,11 @@ async function phase1(browser, u) {
       // the user then swaps in a normal photo and saves successfully.
       if (/corrupt|not_an_image|heic/.test(path.basename(u.avatar))) {
         u.edgeMessage = await expectCleanError(page, /photo|image|HEIC|JPG/i);
+        // The Photos section can be collapsed by now; open it so the photo's × is rendered.
+        const remove = page.getByRole("button", { name: "Remove photo" }).first();
+        if (!(await remove.count())) await page.getByRole("button", { name: /^Photos/ }).first().click();
         // 24px "×" target (below the 44px touch guideline) — tap it directly.
-        await page.getByRole("button", { name: "Remove photo" }).first().dispatchEvent("click");
+        await remove.dispatchEvent("click");
         await page.locator('input[type="file"]').first().setInputFiles(path.join(AVATARS, avatars[u.i % avatars.length]));
         await page.waitForTimeout(800);
         await page.getByRole("button", { name: /Save profile/ }).click();
@@ -309,9 +312,13 @@ async function phase2(browser, u, ids) {
     });
     if (ids.tribes.length) await step(u, page, "join_tribe_and_chat", async () => {
       await spaGo(page, `/tribe/${ids.tribes[u.i % ids.tribes.length]}`);
-      const join = page.getByRole("button", { name: "Join", exact: true });
-      if (await join.count()) { await join.first().click(); await page.waitForTimeout(1500); }
-      await page.getByPlaceholder("Message the tribe…").fill(`Hi tribe, tester ${u.i} here!`);
+      const join = page.getByRole("button", { name: "Join", exact: true }).first();
+      const box = page.getByPlaceholder("Message the tribe…");
+      // Wait for the page to settle into either state; checking immediately caught the
+      // loading skeleton, skipped Join, and then waited for a composer that never came.
+      await join.or(box).first().waitFor({ timeout: 15000 });
+      if (await join.isVisible()) await join.click();
+      await box.fill(`Hi tribe, tester ${u.i} here!`);
       await page.getByRole("button", { name: "Send" }).click();
       await page.getByText(`tester ${u.i} here`).first().waitFor({ timeout: 8000 });
     });
