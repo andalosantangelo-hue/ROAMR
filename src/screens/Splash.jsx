@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
-import NightSky from "../components/NightSky.jsx";
+import MountainHero from "../components/MountainHero.jsx";
 import SocialButtons, { PILL_GREEN, PILL_OUTLINE } from "../components/AuthButtons.jsx";
 
 // Welcome: brand up top, every way in at the bottom — social sign-in starts right here.
@@ -13,16 +13,18 @@ export default function Splash() {
 
   return (
     <div className="relative h-full w-full text-white">
-      <NightSky />
+      <MountainHero />
       <div className="relative h-full flex flex-col">
         <StatusBar dark />
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-10">
-          <div className="rounded-[30%] shadow-[0_0_60px_-6px_rgba(125,173,63,0.55)] ring-1 ring-white/15">
+        <div className="relative flex-1 flex flex-col items-center justify-center px-6 pb-16">
+          {/* soft dark halo so the brand stays legible over bright sky */}
+          <div aria-hidden="true" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[58%] w-[130%] aspect-square rounded-full bg-[radial-gradient(closest-side,rgba(10,22,32,0.62),rgba(10,22,32,0.28)_55%,transparent)]" />
+          <div className="relative rounded-[30%] shadow-[0_0_60px_-6px_rgba(125,173,63,0.55)] ring-1 ring-white/15">
             <Logo size={84} showWord={false} />
           </div>
-          <h1 className="mt-5 text-[40px] leading-none font-extrabold tracking-tight">ROAMR</h1>
-          <p className="mt-3 text-white/75 text-[15px]">
+          <h1 className="relative mt-5 text-[40px] leading-none font-extrabold tracking-tight [text-shadow:0_2px_16px_rgba(0,0,0,0.55)]">ROAMR</h1>
+          <p className="relative mt-3 text-white/90 text-[15px] font-medium [text-shadow:0_1px_10px_rgba(0,0,0,0.7)]">
             Find your tribe. <span className="text-brand-greenBright font-semibold">Get outside.</span>
           </p>
         </div>

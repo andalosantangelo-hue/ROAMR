@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import Logo from "../components/Logo.jsx";
-import NightSky from "../components/NightSky.jsx";
+import MountainHero from "../components/MountainHero.jsx";
 import SocialButtons, { PILL_GREEN } from "../components/AuthButtons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useAuthRedirect, prettyError } from "../lib/authFlow.js";
@@ -48,7 +48,7 @@ export default function Login() {
 
   return (
     <div className="relative h-full w-full text-white">
-      <NightSky ridge={false} />
+      <MountainHero soft />
       <div className="relative h-full flex flex-col">
         <StatusBar dark />
         <div className="flex-1 flex flex-col px-6 overflow-y-auto no-scrollbar">
