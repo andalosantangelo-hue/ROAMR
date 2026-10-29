@@ -66,6 +66,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      // Hold route guards until the profile for this user is loaded (they read profile.ageConfirmed).
+      if (u) setLoading(true);
       setUser(u);
       if (u) {
         try {

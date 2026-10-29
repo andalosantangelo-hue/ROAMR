@@ -19,8 +19,6 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [dob, setDob] = useState("");
-  const ageFrom = (d) => { const b = new Date(d), t = new Date(); let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--; return a; };
 
   // New users go to onboarding; returning users always land on Home.
   const go = ({ isNew }, method = "email") => {
@@ -33,10 +31,6 @@ export default function Login() {
     setError(""); setNotice("");
     if (!isEmail(email)) { setError("Enter a valid email address."); return; }
     if (pw.length < 6) { setError("Password must be at least 6 characters."); return; }
-    if (mode === "signup") {
-      if (!dob) { setError("Please enter your date of birth."); return; }
-      if (ageFrom(dob) < 18) { setError("You must be at least 18 years old to use ROAMR."); return; }
-    }
     setBusy(true);
     try {
       const res = mode === "signup" ? await signUpEmail(email.trim(), pw) : await signInEmail(email.trim(), pw);
@@ -91,13 +85,6 @@ export default function Login() {
               )}
             </button>
           </div>
-          {mode === "signup" && (
-            <div>
-              <label className="block text-[13px] text-ink/70 mb-1 ml-1">Date of birth (you must be 18+)</label>
-              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
-            </div>
-          )}
           <button type="submit" disabled={busy}
             className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark transition text-white font-semibold py-4 disabled:opacity-60">
             {busy ? "…" : mode === "signup" ? "Create Account" : "Sign In"}

@@ -41,6 +41,12 @@ describe("users", () => {
     await assertFails(getDoc(doc(bob(), "users/alice/private/data")));   // other user cannot read your email/phone/tokens
     await assertFails(setDoc(doc(bob(), "users/alice/private/data"), { email: "evil@b.com" }));
   });
+  it("18+ flag lives only in the owner-only private doc, never the public one", async () => {
+    await assertSucceeds(setDoc(doc(alice(), "users/alice/private/data"), { ageConfirmed: true, updatedAt: ts() }, { merge: true }));
+    await assertFails(getDoc(doc(bob(), "users/alice/private/data")));
+    await setDoc(doc(alice(), "users/alice"), { uid: "alice", updatedAt: ts() });
+    await assertFails(setDoc(doc(alice(), "users/alice"), { ageConfirmed: true }, { merge: true })); // not on the public whitelist
+  });
   it("blocks counter/subscription tampering on update", async () => {
     await setDoc(doc(alice(), "users/alice"), { uid: "alice", followerCount: 0, updatedAt: ts() });
     await assertFails(setDoc(doc(alice(), "users/alice"), { followerCount: 999 }, { merge: true }));
