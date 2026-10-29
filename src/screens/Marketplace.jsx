@@ -4,6 +4,7 @@ import { useListings } from "../store/ListingsContext.jsx";
 import SearchBar from "../components/SearchBar.jsx";
 import { SkeletonRegion, ListingCardSkeleton } from "../components/skeletons";
 import { Market } from "../components/Icons.jsx";
+import ApparelShop from "../components/ApparelShop.jsx";
 
 const TABS = [
   { id: "gear", label: "Gear" },
@@ -18,15 +19,6 @@ const TYPE_FILTERS = [
 
 const CATEGORIES = ["All", "Apparel", "Camping", "Climbing", "Water Sports", "Snow Sports", "Cycling", "Footwear", "Other"];
 
-const APPAREL = [
-  { id: "tee", name: "ROAMR Trail Tee", price: 28, blurb: "Soft organic cotton · Sage" },
-  { id: "hoodie", name: "ROAMR Summit Hoodie", price: 58, blurb: "Midweight fleece · Forest" },
-  { id: "cap", name: "ROAMR 5-Panel Cap", price: 26, blurb: "Adjustable · Stone" },
-  { id: "beanie", name: "ROAMR Ridge Beanie", price: 24, blurb: "Ribbed knit · Moss" },
-  { id: "bottle", name: "ROAMR Insulated Bottle", price: 32, blurb: "32oz · Keeps cold 24h" },
-  { id: "stickers", name: "ROAMR Sticker Pack", price: 9, blurb: "Weatherproof · 6 pack" },
-];
-
 export default function Marketplace() {
   const nav = useNavigate();
   const { listings, loading } = useListings();
@@ -34,7 +26,6 @@ export default function Marketplace() {
   const [filter, setFilter] = useState("all");
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
-  const [notified, setNotified] = useState(false);
   const s = q.toLowerCase();
 
   const shown = listings.filter((l) =>
@@ -118,36 +109,7 @@ export default function Marketplace() {
           )}
         </>
       ) : (
-        <>
-          <div className="rounded-2xl bg-brand-navy text-white p-4 mb-4">
-            <p className="font-extrabold text-brand-greenBright">Official ROAMR Gear</p>
-            <p className="text-white/80 text-[13px] mt-1">Our first drop is coming soon. Get on the list and we'll let you know the moment it's live.</p>
-            <button onClick={() => setNotified(true)} disabled={notified}
-              className={`mt-3 w-full rounded-xl py-3 font-semibold transition ${notified ? "bg-white/20 text-white" : "bg-brand-green hover:bg-brand-greenDark text-white"}`}>
-              {notified ? "You're on the list ✓" : "Notify me at drop"}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {APPAREL.map((a) => (
-              <div key={a.id} className="bg-white rounded-2xl shadow-card overflow-hidden">
-                <div className="aspect-square bg-brand-tint grid place-items-center relative">
-                  <span className="text-brand-navy/30 text-2xl font-extrabold tracking-tight">ROAMR</span>
-                  <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-brand-greenBright text-brand-navy">
-                    Coming Soon
-                  </span>
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-brand-navy">${a.price}</span>
-                  </div>
-                  <p className="text-ink text-[13px] mt-0.5 truncate font-medium">{a.name}</p>
-                  <p className="text-muted text-[11px] mt-0.5 truncate">{a.blurb}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
+        <ApparelShop />
       )}
     </div>
   );

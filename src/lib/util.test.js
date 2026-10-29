@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toggleSet, initials, isDemoId, safeText, safeReturnPath } from "./util.js";
+import { toggleSet, initials, isDemoId, safeText, safeReturnPath, isSafeMediaUrl } from "./util.js";
 
 describe("toggleSet", () => {
   it("adds an id that isn't present", () => {
@@ -73,5 +73,20 @@ describe("safeReturnPath", () => {
     expect(safeReturnPath("/login")).toBe(null);
     expect(safeReturnPath("/onboarding")).toBe(null);
     expect(safeReturnPath("/")).toBe(null);
+  });
+});
+
+describe("isSafeMediaUrl", () => {
+  it("accepts our Storage bucket and the local emulator", () => {
+    expect(isSafeMediaUrl("https://firebasestorage.googleapis.com/v0/b/x/o/posts%2Fa%2F1.jpg")).toBe(true);
+    expect(isSafeMediaUrl("http://127.0.0.1:9199/v0/b/x/o/1.jpg")).toBe(true);
+  });
+  it("rejects other hosts, look-alikes and non-strings", () => {
+    expect(isSafeMediaUrl("https://evil.example/p.gif")).toBe(false);
+    expect(isSafeMediaUrl("https://firebasestorage.googleapis.com.evil.example/p.gif")).toBe(false);
+    expect(isSafeMediaUrl("http://firebasestorage.googleapis.com/p.gif")).toBe(false);
+    expect(isSafeMediaUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeMediaUrl({ url: "x" })).toBe(false);
+    expect(isSafeMediaUrl("https://firebasestorage.googleapis.com/" + "a".repeat(2000))).toBe(false);
   });
 });

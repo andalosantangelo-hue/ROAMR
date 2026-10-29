@@ -5,6 +5,7 @@ import { Bell } from "./Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
 import { SCOPES } from "../lib/feed.js";
+import { useNeedsVerify } from "./VerifyBanner.jsx";
 
 function Chevron({ className }) {
   return (
@@ -17,7 +18,8 @@ function Chevron({ className }) {
 
 export default function TopBar() {
   const nav = useNavigate();
-  const { unreadCount } = useAuth();
+  const { unreadCount: unread } = useAuth();
+  const unreadCount = unread + (useNeedsVerify() ? 1 : 0); // verify reminder lives in the inbox
   const { scope, setScope } = useFeedScope();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);

@@ -13,11 +13,11 @@ export default function SearchBar({ placeholder = "Search", value, onChange, onF
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 flex items-center gap-2 bg-white rounded-xl px-4 py-3 shadow-card">
+    <div className="flex items-center gap-3 w-full min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2 bg-white rounded-xl px-4 py-3 shadow-card">
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder}
-          className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-muted" />
-        <Search className="w-5 h-5 text-ink/70" />
+          className="flex-1 min-w-0 bg-transparent outline-none text-[15px] placeholder:text-muted" />
+        <Search className="w-5 h-5 text-ink/70 shrink-0" />
       </div>
       {onFilter && (
         <button onClick={onFilter} aria-label="Filter"

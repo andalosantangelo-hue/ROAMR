@@ -11,7 +11,7 @@ const KB = [
   { k: ["message", "dm", "chat", "direct"], a: "To message someone, open their profile and tap Message — that starts a private chat. All your conversations live under Profile → Messages." },
   { k: ["profile", "edit", "photo", "bio", "name"], a: "Go to Profile → Edit Profile to update your name, photo, and bio. Your name is shown on your posts and activities." },
   { k: ["gear", "marketplace", "sell", "buy", "rent", "listing"], a: "In the Marketplace tab you can list gear to sell or rent — add a category, price, and photos. Check the ROAMR Apparel tab for official ROAMR gear." },
-  { k: ["apparel", "merch", "clothing", "official"], a: "Official ROAMR apparel is in Marketplace → ROAMR Apparel. Our first drop is coming soon — tap “Notify me at drop” to be first in line." },
+  { k: ["apparel", "merch", "clothing", "official"], a: "Official ROAMR apparel is in Marketplace → ROAMR Apparel. Browse by category, add to your bag, and check out securely on our Shopify store." },
   { k: ["safe", "safety", "secure", "stranger"], a: "Stay safe: meet new people in public places first, share your plans with a friend, check the weather and trail conditions, and know your limits. Tap the ⋯ menu on any post or profile to report anything that feels off." },
   { k: ["report", "block", "abuse"], a: "Tap the ⋯ menu on any post or profile and choose Report or Block. Our team reviews every report. Blocking hides that person from you." },
   { k: ["premium", "subscription", "pay", "plan", "membership"], a: "ROAMR Premium is on the way. You can join the waitlist from Profile → Membership and we'll let you know when it launches." },

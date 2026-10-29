@@ -6,6 +6,8 @@ import { usePosts } from "../store/PostsContext.jsx";
 import { initials } from "../lib/util.js";
 import FollowButton from "./FollowButton.jsx";
 import { shareInvite } from "../lib/share.js";
+import PostMedia from "./PostMedia.jsx";
+import { useState } from "react";
 
 function Pin({ className = "w-4 h-4" }) {
   return (
@@ -22,6 +24,21 @@ const fmtDate = (p) => {
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 };
+
+function Story({ text }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 180 || text.split("\n").length > 3;
+  return (
+    <div className="mt-1.5">
+      <p className={`text-[14px] text-ink/90 whitespace-pre-line leading-relaxed ${open || !long ? "" : "line-clamp-3"}`}>{text}</p>
+      {long && (
+        <button onClick={() => setOpen((v) => !v)} className="block text-muted text-[13px] font-semibold mt-0.5">
+          {open ? "Show less" : "more"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function PostCardInner({ post }) {
   const nav = useNavigate();
@@ -52,11 +69,7 @@ function PostCardInner({ post }) {
         <CardMenu targetType="post" targetId={post.id} ownerId={post.authorId} />
       </div>
 
-      {post.photo && (
-        <div className="px-3">
-          <img src={post.photo} alt={post.title} className="w-full h-52 object-cover rounded-xl bg-brand-tint" loading="lazy" />
-        </div>
-      )}
+      <PostMedia post={post} />
 
       <div className="px-4 pt-3">
         <h3 className="font-semibold text-ink leading-snug">{post.title}</h3>
@@ -65,6 +78,7 @@ function PostCardInner({ post }) {
             <Pin className="w-4 h-4 text-brand-green" /> {post.location}
           </div>
         )}
+        {post.body && <Story text={post.body} />}
         {post.rating > 0 && (
           <div className="flex gap-0.5 mt-1.5 text-brand-green">
             {[1, 2, 3, 4, 5].map((n) => <Star key={n} filled={n <= post.rating} className="w-4 h-4" />)}

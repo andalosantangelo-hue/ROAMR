@@ -42,3 +42,16 @@ export function safeReturnPath(from) {
   if (from === "/" || from.startsWith("/login") || from.startsWith("/onboarding")) return null;
   return from.slice(0, 300);
 }
+
+// Post media must come from our own Storage bucket. Rules only check the media list's
+// shape (a per-URL check for 10 items exceeds the rules expression budget), so the
+// renderer refuses anything else — an off-site URL could be a tracking pixel that logs
+// every viewer's IP. 127.0.0.1:9199 is the local Storage emulator.
+export function isSafeMediaUrl(v) {
+  if (typeof v !== "string" || v.length > 2000) return false;
+  try {
+    const u = new URL(v);
+    return (u.protocol === "https:" && u.host === "firebasestorage.googleapis.com")
+      || (u.protocol === "http:" && u.host === "127.0.0.1:9199");
+  } catch { return false; }
+}

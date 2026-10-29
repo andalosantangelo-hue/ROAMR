@@ -4,6 +4,7 @@ import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { useActivities } from "../store/ActivitiesContext.jsx";
 import { Plus } from "../components/Icons.jsx";
+import LocationField from "../components/LocationField.jsx";
 
 const SKILLS = ["All Levels", "Beginner", "Intermediate", "Advanced"];
 
@@ -17,7 +18,7 @@ export default function ComposeActivity() {
   const nav = useNavigate();
   const { addActivity } = useActivities();
   const [text, setText] = useState("");
-  const [location, setLocation] = useState("");
+  const [place, setPlace] = useState(null); // { label, lat?, lng? }
   const [when, setWhen] = useState("");
   const [skill, setSkill] = useState("All Levels");
   const [dmOpen, setDmOpen] = useState(true);
@@ -30,49 +31,37 @@ export default function ComposeActivity() {
   const pick = (e) => { const f = e.target.files?.[0]; if (f) { setFile(f); setPreview(URL.createObjectURL(f)); } };
   const canPost = text.trim().length > 0 && !busy;
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) { setLocation(""); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation(`Near ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`),
-      () => {}, { timeout: 8000 }
-    );
-  };
-
   const submit = async () => {
     if (!canPost) return;
     // The min attribute isn't enforced everywhere (typed input, some WebViews).
     if (when && new Date(when).getTime() < Date.now() - 60000) { setError("Pick a date and time in the future."); return; }
     setBusy(true); setError("");
     try {
-      await addActivity({ text: text.trim(), location: location.trim(), when, skillLevel: skill, dmOpen, file });
+      await addActivity({ text: text.trim(), location: (place?.label || "").trim().slice(0, 120), geo: place?.lat != null ? { lat: place.lat, lng: place.lng } : null, when, skillLevel: skill, dmOpen, file });
       nav("/app/activities", { replace: true }); // Back must not return to the emptied form
     } catch (e) { setError(friendlyError(e, "Your activity couldn't be posted. Please try again.")); setBusy(false); }
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white overflow-x-hidden">
       <StatusBar />
       <div className="flex items-center gap-3 px-5 py-3">
         <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
         <h1 className="text-lg font-semibold text-brand-navy">New Activity</h1>
       </div>
 
-      <div className="flex-1 px-6 pt-2 overflow-y-auto no-scrollbar">
+      <div className="flex-1 px-6 pt-2 overflow-y-auto overflow-x-hidden no-scrollbar">
         <label className="block text-sm font-semibold text-ink/80 mb-2">What Are You Planning?</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} autoFocus maxLength={2000}
           placeholder="e.g. Sunrise hike up Mt Batulao. Who's in?"
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted resize-none" />
 
-        <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
-        <div className="flex gap-2">
-          <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="e.g. Mount Batulao, Nasugbu"
-            className="flex-1 min-w-0 rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted" />
-          <button type="button" onClick={useMyLocation} className="shrink-0 rounded-xl bg-brand-tint text-brand-navy text-[13px] font-semibold px-3 whitespace-nowrap">Use my location</button>
-        </div>
+        <label htmlFor="act-loc" className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Location</label>
+        <LocationField id="act-loc" value={place} onChange={setPlace} placeholder="Trailhead, park, or town" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Date & Time</label>
         <input type="datetime-local" value={when} min={nowLocal()} onChange={(e) => setWhen(e.target.value)}
-          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
+          className="block w-full max-w-full min-w-0 appearance-none rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
 
         <label className="block mt-5 text-sm font-semibold text-ink/80 mb-2">Skill Level</label>
         <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@ import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Profile as 
 import { useAuth } from "../store/AuthContext.jsx";
 import { titleCase } from "../lib/util.js";
 import { SkeletonRegion, ProfileHeaderSkeleton } from "../components/skeletons";
+import VerifyCard from "../components/VerifyBanner.jsx";
 
 const ITEMS = [
   { icon: Edit, title: "Edit Profile", sub: "Update personal info and picture", to: "/edit-profile" },
@@ -47,6 +48,7 @@ export default function Profile() {
       </div>
 
       <div className="divide-y divide-black/5">
+        <VerifyCard variant="row" />
         {ITEMS.map(({ icon: Icon, title, sub, to }) => (
           <button key={title} onClick={() => nav(to)}
             className="w-full flex items-center gap-4 py-4 text-left">

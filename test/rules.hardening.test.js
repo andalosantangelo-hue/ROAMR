@@ -55,6 +55,34 @@ describe("field types (one bad doc must not crash every client's feed)", () => {
   });
 });
 
+describe("rich posts (body, geo, media)", () => {
+  const FS = "https://firebasestorage.googleapis.com/v0/b/x/o/posts%2Falice%2F";
+  const media = [
+    { type: "image", url: `${FS}1.jpg`, w: 4096, h: 2048, is360: true },
+    { type: "video", url: `${FS}2.mp4`, poster: `${FS}2-poster.jpg`, w: 3840, h: 2160, duration: 120 },
+    { type: "audio", url: `${FS}3.m4a`, duration: 30 },
+  ];
+  it("accepts a story, coordinates and own-bucket media", async () => {
+    await assertSucceeds(setDoc(doc(alice(), "posts/rich1"), { ...post("alice"), body: "Great day out.", geo: { lat: 39.7, lng: -105.2 }, media }));
+  });
+  it("accepts an activity with coordinates", async () => {
+    await assertSucceeds(setDoc(doc(alice(), "activities/a1"), { authorId: "alice", authorName: "A", authorPhotoURL: null, text: "Hike?", photo: null, location: "Golden", geo: { lat: 39.7, lng: -105.2 }, when: null, skillLevel: "All Levels", dmOpen: true, attendeeCount: 0, recentAttendees: [], likeCount: 0, commentCount: 0, createdAt: ts() }));
+  });
+  it("rejects a body over 2,200 characters", async () => {
+    await assertFails(setDoc(doc(alice(), "posts/rich2"), { ...post("alice"), body: "x".repeat(2201) }));
+  });
+  it("rejects malformed geo", async () => {
+    await assertFails(setDoc(doc(alice(), "posts/rich3"), { ...post("alice"), geo: { lat: "39", lng: -105 } }));
+    await assertFails(setDoc(doc(alice(), "posts/rich4"), { ...post("alice"), geo: { lat: 1, lng: 2, x: 3 } }));
+  });
+  it("accepts the full 10 media items (stays under the 1000-expression limit)", async () => {
+    await assertSucceeds(setDoc(doc(alice(), "posts/rich10"), { ...post("alice"), body: "x".repeat(2200), geo: { lat: 1, lng: 2 }, media: Array(10).fill(media[1]) }));
+  });
+  it("rejects more than 10 media items", async () => {
+    await assertFails(setDoc(doc(alice(), "posts/rich5"), { ...post("alice"), media: Array(11).fill(media[0]) }));
+  });
+});
+
 describe("profiles", () => {
   it("caps text sizes (a 900 KB bio used to be accepted)", async () => {
     await seed((db) => setDoc(doc(db, "users/alice"), userDoc("alice")));
@@ -228,6 +256,11 @@ describe("storage", () => {
     await assertSucceeds(uploadBytes(ref(st("alice"), "avatars/alice/a.png"), png, { contentType: "image/png" }));
     await assertFails(uploadBytes(ref(st("alice"), "avatars/bob/evil.png"), png, { contentType: "image/png" }));
     await assertFails(uploadBytes(ref(st("alice"), "avatars/alice/x.html"), png, { contentType: "text/html" }));
+  });
+  it("post media allows video and audio, other folders stay image-only", async () => {
+    await assertSucceeds(uploadBytes(ref(st("alice"), "posts/alice/v.mp4"), png, { contentType: "video/mp4" }));
+    await assertSucceeds(uploadBytes(ref(st("alice"), "posts/alice/a.m4a"), png, { contentType: "audio/mp4" }));
+    await assertFails(uploadBytes(ref(st("alice"), "avatars/alice/v.mp4"), png, { contentType: "video/mp4" }));
   });
   it("owners can delete their own files (account deletion needs this)", async () => {
     await assertSucceeds(uploadBytes(ref(st("alice"), "posts/alice/p.png"), png, { contentType: "image/png" }));

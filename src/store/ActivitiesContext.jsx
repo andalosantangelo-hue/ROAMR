@@ -53,7 +53,7 @@ export function ActivitiesProvider({ children }) {
   const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const activities = base.filter((a) => !blockedIds.has(a.authorId));
 
-  const addActivity = async ({ text, location = "", when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
+  const addActivity = async ({ text, location = "", geo = null, when = "", skillLevel = "All Levels", dmOpen = true, file }) => {
     if (!user) return;
     requireOnlineForPhotos(!!file);
     let photo = null;
@@ -67,7 +67,7 @@ export function ActivitiesProvider({ children }) {
       authorName: (profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer")).slice(0, 40),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
       text, photo,
-      location: location || "", when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
+      location: location || "", geo: geo || null, when: when || null, skillLevel: skillLevel || "All Levels", dmOpen: dmOpen !== false,
       attendeeCount: 0, recentAttendees: [], likeCount: 0, commentCount: 0,
       createdAt: serverTimestamp(),
     }));

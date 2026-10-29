@@ -61,6 +61,19 @@ service cloud.firestore {
         && x.get('leadTime', '').size() <= 40 && x.get('willTravel', '').size() <= 40
         && x.get('style', '').size() <= 40;
     }
+    // Optional {lat,lng} map (or null) used by the map view + radius filter.
+    function geoOk() {
+      return !has('geo') || d().geo == null
+        || (d().geo is map && d().geo.keys().hasOnly(['lat','lng'])
+            && d().geo.lat is number && d().geo.lng is number);
+    }
+    // Post media (lib/media.js): up to 10 items. Only the shape is checked here — a
+    // per-item URL check for 10 items exceeds the 1000-expression limit. URL safety is
+    // enforced where there's no budget: PostMedia renders only our own bucket
+    // (isSafeMediaUrl) and onPostCreate deletes posts carrying foreign media URLs.
+    function mediaOk() {
+      return !has('media') || (d().media is list && d().media.size() <= 10);
+    }
 
     // Collection-group reads of the current user's own presence docs
     match /{path=**}/members/{uid}   { allow read: if signedIn(); }
@@ -157,9 +170,9 @@ service cloud.firestore {
 
     // ---- Posts ------------------------------------------------------------------
     function validPost() {
-      return keysOnly(['authorId','authorName','authorPhotoURL','title','location','photo','rating','likeCount','commentCount','createdAt'])
-        && reqStr('title', 1, 300) && optStr('authorName', 40) && optImg('authorPhotoURL')
-        && optStr('location', 120) && optImg('photo') && optNum('rating', 0, 5);
+      return keysOnly(['authorId','authorName','authorPhotoURL','title','body','location','geo','photo','media','rating','likeCount','commentCount','createdAt'])
+        && reqStr('title', 1, 300) && optStr('body', 2200) && optStr('authorName', 40) && optImg('authorPhotoURL')
+        && optStr('location', 120) && geoOk() && optImg('photo') && mediaOk() && optNum('rating', 0, 5);
     }
     function validComment() {
       return keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt'])
@@ -192,9 +205,9 @@ service cloud.firestore {
 
     // ---- Activities -------------------------------------------------------------
     function validActivity() {
-      return keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
+      return keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','geo','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
         && reqStr('text', 1, 2000) && optStr('authorName', 40) && optImg('authorPhotoURL') && optImg('photo')
-        && optStr('location', 120) && optStr('when', 40) && optBool('dmOpen')
+        && optStr('location', 120) && geoOk() && optStr('when', 40) && optBool('dmOpen')
         && (!has('skillLevel') || d().skillLevel in ['All Levels', 'Beginner', 'Intermediate', 'Advanced']);
     }
     match /activities/{id} {

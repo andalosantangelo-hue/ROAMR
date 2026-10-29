@@ -68,6 +68,17 @@ describe("posts", () => {
   it("rejects oversized title", async () => {
     await assertFails(setDoc(doc(alice(), "posts/p5"), { ...post("alice"), title: "x".repeat(400) }));
   });
+  it("accepts story body, media list and geo pin", async () => {
+    await assertSucceeds(setDoc(doc(alice(), "posts/p6"), {
+      ...post("alice"), body: "Long day, worth it.", geo: { lat: 37.93, lng: -107.81 },
+      media: [{ type: "video", url: "https://firebasestorage.googleapis.com/v0/b/x/o/v.mp4", poster: "https://firebasestorage.googleapis.com/v0/b/x/o/p.jpg" }, { type: "image", url: "https://firebasestorage.googleapis.com/v0/b/x/o/i.jpg", is360: true }],
+    }));
+  });
+  it("rejects oversized body, >10 media, or malformed geo", async () => {
+    await assertFails(setDoc(doc(alice(), "posts/p7"), { ...post("alice"), body: "x".repeat(2300) }));
+    await assertFails(setDoc(doc(alice(), "posts/p8"), { ...post("alice"), media: Array.from({ length: 11 }, () => ({ type: "image", url: "u" })) }));
+    await assertFails(setDoc(doc(alice(), "posts/p9"), { ...post("alice"), geo: { lat: "37", lng: -107, evil: 1 } }));
+  });
   it("likes only as yourself; non-owner can't tamper counts on update", async () => {
     await setDoc(doc(alice(), "posts/p1"), post("alice"));
     await assertSucceeds(setDoc(doc(bob(), "posts/p1/likes/bob"), { uid: "bob", createdAt: ts() }));

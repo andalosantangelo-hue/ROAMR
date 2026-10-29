@@ -6,15 +6,21 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
     function isUser(uid) { return request.auth != null && request.auth.uid == uid; }
+    // Post media: re-encoded photos (incl. 360° panoramas), 4K/6K video, audio.
+    function postMedia() {
+      return (request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)') && request.resource.size < 25 * 1024 * 1024)
+        || (request.resource.contentType.matches('video/.*') && request.resource.size < 2 * 1024 * 1024 * 1024)
+        || (request.resource.contentType.matches('audio/.*') && request.resource.size < 200 * 1024 * 1024);
+    }
 
     // Files are scoped to the uploader's uid so one user can't overwrite another's
     // images or dump arbitrary objects under a shared prefix.
     // `get` only (no `list`): a public `read` also let anyone list every user's uploads.
-    // `delete` is separate from create/update because img() inspects request.resource,
-    // which is null on delete — that left owners unable to delete their own files.
+    // `delete` is separate from create/update because img()/postMedia() inspect
+    // request.resource, which is null on delete — that left owners unable to delete their own files.
     match /tribes/{uid}/{f=**}     { allow get: if true; allow create, update: if isUser(uid) && img(); allow delete: if isUser(uid); }
     match /avatars/{uid}/{f=**}    { allow get: if true; allow create, update: if isUser(uid) && img(); allow delete: if isUser(uid); }
-    match /posts/{uid}/{f=**}      { allow get: if true; allow create, update: if isUser(uid) && img(); allow delete: if isUser(uid); }
+    match /posts/{uid}/{f=**}      { allow get: if true; allow create, update: if isUser(uid) && postMedia(); allow delete: if isUser(uid); }
     match /activities/{uid}/{f=**} { allow get: if true; allow create, update: if isUser(uid) && img(); allow delete: if isUser(uid); }
     match /listings/{uid}/{f=**}   { allow get: if true; allow create, update: if isUser(uid) && img(); allow delete: if isUser(uid); }
     // Verification selfies are PRIVATE — only the owner (and Admin via console) can read.
