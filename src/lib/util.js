@@ -17,3 +17,14 @@ export function initials(name = "") {
 export function titleCase(s = "") {
   return s.replace(/\s+/g, " ").trim().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 }
+
+// Whole years between a YYYY-MM-DD birth date and `today`; NaN for bad input.
+// Used for the 18+ gate — the birth date itself is never stored.
+export function ageOn(dob, today = new Date()) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob || "");
+  if (!m) return NaN;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d)) age--;
+  return age;
+}

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
+import LogoCheck from "../components/LogoCheck.jsx";
 import { Hiking, Water, Bike, Nature, Snow, Check } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
-import { titleCase } from "../lib/util.js";
+import { titleCase, ageOn } from "../lib/util.js";
 import { AVAILABILITY } from "../lib/profile.js";
 
 const ACTIVITIES = [
@@ -18,8 +19,12 @@ const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 
 export default function Onboarding() {
   const nav = useNavigate();
-  const { user, profile, saveInterests, saveProfile } = useAuth();
-  const [step, setStep] = useState(1);
+  const { user, profile, saveInterests, saveProfile, savePrivate, logout } = useAuth();
+  // Step 0 is the 18+ gate; every sign-in method lands here until it's passed.
+  const [step, setStep] = useState(profile?.ageConfirmed ? 1 : 0);
+  const [dob, setDob] = useState("");
+  const [ageState, setAgeState] = useState("idle"); // idle | saving | confirmed | under
+  const [error, setError] = useState("");
   const [name, setName] = useState(profile?.displayName || user?.displayName || "");
   const [selected, setSelected] = useState([]);
   const [subs, setSubs] = useState([]);
@@ -29,6 +34,10 @@ export default function Onboarding() {
   const [availability, setAvailability] = useState([]);
   const [adventure, setAdventure] = useState("");
   const toggleAvail = (a) => setAvailability((s) => (s.includes(a) ? s.filter((x) => x !== a) : [...s, a]));
+
+  useEffect(() => {
+    if (profile?.ageConfirmed && step === 0 && ageState === "idle") setStep(1);
+  }, [profile?.ageConfirmed, step, ageState]);
 
   useEffect(() => {
     const existing = profile?.displayName || user?.displayName;
@@ -48,8 +57,34 @@ export default function Onboarding() {
     setStep(2);
   };
 
+  const confirmAge = async () => {
+    if (!user) { nav("/login", { replace: true }); return; }
+    setError("");
+    const age = ageOn(dob);
+    if (Number.isNaN(age)) { setError("Enter your date of birth."); return; }
+    if (age < 18) { setDob(""); setAgeState("under"); return; }
+    setAgeState("saving");
+    try {
+      // Only the yes/no is stored, in the owner-only private doc. The date never leaves this screen.
+      await savePrivate({ ageConfirmed: true });
+    } catch {
+      setAgeState("idle");
+      setError("Couldn't save that — check your connection and try again.");
+      return;
+    }
+    setDob("");
+    setAgeState("confirmed");
+    track("age_confirmed");
+    // Let the check mark land, then continue. Already-onboarded users go straight home.
+    setTimeout(() => {
+      if (profile?.interests?.length) nav("/app/home", { replace: true });
+      else setStep(1);
+    }, 900);
+  };
+
   const finish = async () => {
     setBusy(true);
+    setError("");
     try {
       const skillLevels = {};
       selected.forEach((id) => { skillLevels[id] = levels[id] || "Beginner"; });
@@ -57,7 +92,11 @@ export default function Onboarding() {
       await saveProfile({ displayName: titleCase(name), subInterests: subs, skillLevels,
         location: location.trim(), availability, prompts });
       await saveInterests(selected);
-    } catch { /* non-blocking */ }
+    } catch {
+      setBusy(false);
+      setError("Couldn't save your picks — check your connection and try again.");
+      return;
+    }
     track("onboarding_complete", { count: selected.length });
     nav("/app/home");
   };
@@ -66,7 +105,48 @@ export default function Onboarding() {
     <div className="h-full flex flex-col bg-gradient-to-b from-brand-tint to-white">
       <StatusBar />
       <div className="flex-1 flex flex-col px-6 overflow-y-auto no-scrollbar">
-        {step === 1 ? (
+        {step === 0 ? (
+          <div className="flex-1 flex flex-col">
+            <div className="flex flex-col items-center text-center mt-14">
+              <LogoCheck size={88} checked={ageState === "confirmed"} />
+              <h1 className="text-[26px] font-extrabold text-brand-navy mt-7 mb-1" aria-live="polite">
+                {ageState === "confirmed" ? "You're in" : ageState === "under" ? "Sorry, not yet" : "Quick check"}
+              </h1>
+              <p className="text-ink/70 text-[15px] max-w-[300px]">
+                {ageState === "under"
+                  ? "ROAMR is for adults 18 and over. Come find your tribe when you're 18."
+                  : ageState === "confirmed"
+                  ? (profile?.interests?.length ? "Taking you to your feed." : "Now let's set up your profile.")
+                  : "ROAMR is for adults 18+. We only keep a yes or no, never your birth date."}
+              </p>
+            </div>
+
+            {(ageState === "idle" || ageState === "saving") && (
+              <div className="mt-8">
+                <label htmlFor="dob" className="block text-[13px] font-semibold text-ink/70 mb-1 ml-1">Date of birth</label>
+                <input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)} autoComplete="bday"
+                  aria-invalid={!!error} aria-describedby={error ? "age-error" : undefined}
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 text-ink" />
+                {error && <p id="age-error" role="alert" className="text-red-700 text-sm mt-2 ml-1">{error}</p>}
+              </div>
+            )}
+
+            <div className="mt-auto pt-8 pb-7">
+              {ageState === "under" ? (
+                <button onClick={() => logout().then(() => nav("/", { replace: true }))}
+                  className="w-full rounded-xl py-4 font-semibold bg-brand-navy text-white">
+                  Sign out
+                </button>
+              ) : ageState !== "confirmed" && (
+                <button disabled={!dob || ageState === "saving"} onClick={confirmAge}
+                  className="w-full rounded-xl py-4 font-semibold bg-brand-green hover:bg-brand-greenDark text-white transition disabled:opacity-60">
+                  {ageState === "saving" ? "Checking…" : "Continue"}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : step === 1 ? (
           <>
             <h1 className="text-[26px] font-extrabold text-brand-navy mt-6 mb-1">Welcome to ROAMR</h1>
             <p className="text-ink/70 text-[15px] mb-5">Let&apos;s set up your profile.</p>
@@ -158,6 +238,7 @@ export default function Onboarding() {
             </div>
 
             <div className="mt-auto pt-8 pb-7">
+              {error && <p role="alert" className="text-red-700 text-sm text-center mb-3">{error}</p>}
               <button disabled={busy} onClick={finish}
                 className="w-full rounded-xl py-4 font-semibold bg-brand-green hover:bg-brand-greenDark text-white transition disabled:opacity-60">
                 {busy ? "Setting up…" : "Finish"}

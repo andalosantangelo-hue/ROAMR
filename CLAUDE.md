@@ -21,6 +21,9 @@ npm run build        # must succeed; CI gate
 firebase deploy --only firestore:rules,firestore:indexes   # after rules/schema changes
 firebase deploy --only hosting                              # public site
 ```
+MCP: `.mcp.json` registers the Refero design-reference server; export `REFERO_API_KEY`
+in your shell (never commit the key).
+
 CI (`.github/workflows/ci.yml`): lint → test → coverage gate (util.js, ErrorBoundary) →
 build → audit, plus gitleaks.
 
