@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # matches functions/package.json engines + CI
           cache: npm
       - run: npm ci
       - run: npm ci
@@ -34,6 +34,18 @@ jobs:
       - name: Deploy rules, indexes, storage, functions
         if: inputs.target != 'hosting'
         run: npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project roamr-55afb --non-interactive
+
+      # `firebase deploy` can't set TTL policies. Without them the idempotency claims
+      # (processedEvents) and notification dedupe docs (notifDedupe) are never cleaned up —
+      # nothing breaks, they just grow. Needs the service account to have
+      # roles/datastore.owner (or indexAdmin); if it doesn't, run these once by hand.
+      - name: Firestore TTL policies
+        if: inputs.target != 'hosting'
+        continue-on-error: true
+        run: |
+          for cg in processedEvents notifDedupe; do
+            gcloud firestore fields ttls update expireAt --collection-group="$cg" --enable-ttl --project=roamr-55afb --async --quiet
+          done
 
       - name: Build web app
         if: inputs.target != 'backend'
