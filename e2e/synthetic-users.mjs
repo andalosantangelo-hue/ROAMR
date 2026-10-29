@@ -64,6 +64,9 @@ async function step(u, page, name, fn) {
   }
 }
 const uiErr = async (u, page, where) => { const t = (await page.locator(".text-red-600").allInnerTexts().catch(() => [])).filter(Boolean); if (t.length) u.uiErrors.push(`${where}: ${t.join(" | ").slice(0, 200)}`); };
+// LocationField's suggestion list stays open after typing and covers the fields below;
+// tapping outside it (the page title) closes it, as a person would.
+const closePlaces = (page, title) => page.getByRole("heading", { name: title }).click();
 async function pool(items, n, fn) { let k = 0; await Promise.all(Array.from({ length: n }, async () => { while (k < items.length) { const it = items[k++]; await fn(it); } })); }
 const future = (d) => { const x = new Date(Date.now() + d * 864e5); x.setMinutes(0); return x.toISOString().slice(0, 16); };
 
@@ -168,9 +171,11 @@ async function phase1(browser, u) {
     await step(u, page, "create_post", async () => {
       await spaGo(page, "/create-post");
       await page.locator('input[type="file"]').setInputFiles(path.join(AVATARS, avatars[(u.i * 7) % avatars.length]));
-      await page.getByPlaceholder(/Mt Daraitan/).fill(u.i === 35 ? "T".repeat(400) : `${pick(["Sunrise", "Bluebird", "Moody", "Epic"])} day at ${pick(["Longs Peak", "Angel's Landing", "Mt Si", "Half Dome", "Grays Peak"])}`);
-      await page.getByPlaceholder(/Mount Daraitan/).fill(u.city);
-      await page.locator("button:has(svg.w-8)").nth(3).click();
+      await page.getByRole("button", { name: "Remove" }).first().waitFor({ timeout: 15000 }); // media thumbnail ready
+      await page.locator("#post-title").fill(u.i === 35 ? "T".repeat(400) : `${pick(["Sunrise", "Bluebird", "Moody", "Epic"])} day at ${pick(["Longs Peak", "Angel's Landing", "Mt Si", "Half Dome", "Grays Peak"])}`);
+      await page.locator("#post-loc").fill(u.city);
+      await closePlaces(page, "New Post");
+      await page.getByRole("button", { name: "4 stars" }).click();
       await page.getByRole("button", { name: "Post", exact: true }).click();
       await page.waitForURL(/\/app\/home/, { timeout: 30000 });
     });
@@ -178,7 +183,8 @@ async function phase1(browser, u) {
     await step(u, page, "create_activity", async () => {
       await spaGo(page, "/create-activity");
       await page.getByPlaceholder(/Sunrise hike/).fill(`${pick(["Sunrise hike", "Bouldering session", "Paddle + picnic", "Trail run"])} near ${u.city}. Who's in?`);
-      await page.getByPlaceholder(/Mount Batulao/).fill(u.city);
+      await page.locator("#act-loc").fill(u.city);
+      await closePlaces(page, "New Activity");
       await page.locator('input[type="datetime-local"]').fill(u.i === 37 ? "2020-01-01T08:00" : future(2 + (u.i % 20)));
       await page.getByRole("button", { name: ["All Levels", "Beginner", "Intermediate", "Advanced"][u.i % 4], exact: true }).click();
       await page.getByRole("button", { name: /Post Activity/ }).click();
