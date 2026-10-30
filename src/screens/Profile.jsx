@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Profile as UserIcon } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { titleCase } from "../lib/util.js";
+import { SkeletonRegion, ProfileHeaderSkeleton } from "../components/skeletons";
 import VerifyCard from "../components/VerifyBanner.jsx";
 
 const ITEMS = [
@@ -16,7 +17,7 @@ const ITEMS = [
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, profileStatus, logout } = useAuth();
 
   const rawName = profile?.displayName || user?.displayName || (user?.email ? user.email.split("@")[0] : "Explorer");
   const name = titleCase(rawName);
@@ -28,7 +29,10 @@ export default function Profile() {
   return (
     <div className="px-6 pt-8 pb-6 bg-white min-h-full">
       <div className="flex flex-col items-center mb-8">
-        <button onClick={() => user && nav(`/u/${user.uid}`)} aria-label="View my profile" className="flex flex-col items-center">
+        {profileStatus === "loading" ? (
+          <SkeletonRegion label="Loading your profile"><ProfileHeaderSkeleton variant="compact" /></SkeletonRegion>
+        ) : (
+        <button onClick={() => user && nav(`/u/${user.uid}`)} aria-label="View my profile" className="flex flex-col items-center w-full min-w-0">
           {photo ? (
             <img src={photo} alt="" className="w-28 h-28 rounded-full object-cover" />
           ) : (
@@ -36,10 +40,11 @@ export default function Profile() {
               <UserIcon className="w-14 h-14" />
             </span>
           )}
-          <h2 className="text-2xl font-extrabold text-brand-navy mt-4">{name}</h2>
-          {email && <p className="text-muted text-[15px]">{email}</p>}
+          <h2 className="text-2xl font-extrabold text-brand-navy mt-4 text-center break-words max-w-full">{name}</h2>
+          {email && <p className="text-muted text-[15px] text-center break-all max-w-full">{email}</p>}
           <span className="mt-2 text-brand-green text-[13px] font-semibold">View My Profile</span>
         </button>
+        )}
       </div>
 
       <div className="divide-y divide-black/5">

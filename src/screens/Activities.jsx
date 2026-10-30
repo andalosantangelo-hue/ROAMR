@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import SearchBar from "../components/SearchBar.jsx";
 import FilterSheet from "../components/FilterSheet.jsx";
 import ActivityCard from "../components/ActivityCard.jsx";
-import { PostSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, ActivityCardSkeleton } from "../components/skeletons";
 import { useActivities } from "../store/ActivitiesContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
@@ -95,7 +95,11 @@ export default function Activities() {
         </div>
       ) : (
         <div className="space-y-4 mt-4">
-          {loading ? [0, 1, 2].map((i) => <PostSkeleton key={i} />)
+          {loading ? (
+            <SkeletonRegion label="Loading activities" className="space-y-4">
+              {[0, 1, 2].map((i) => <ActivityCardSkeleton key={i} />)}
+            </SkeletonRegion>
+          )
             : filtered.length === 0 ? empty
               : filtered.map((a) => <ActivityCard key={a.id} item={a} />)}
         </div>

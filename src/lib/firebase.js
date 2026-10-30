@@ -4,10 +4,21 @@ import {
 } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
+// Local development / CI: VITE_USE_EMULATORS=1 points the app at the Firebase
+// emulators under a "demo-" project, which can never reach production data.
+const useEmulators = import.meta.env.VITE_USE_EMULATORS === "1";
+
 // Firebase web config is safe to ship in client code.
-const firebaseConfig = {
+const firebaseConfig = useEmulators ? {
+  apiKey: "demo-key",
+  authDomain: "demo-roamr.firebaseapp.com",
+  projectId: "demo-roamr",
+  storageBucket: "demo-roamr.appspot.com",
+  appId: "demo-app",
+} : {
   apiKey: "AIzaSyB25GLlLAoUiyn8u8NcdrHnLR7GSZJIqDo",
   authDomain: "roamr-55afb.firebaseapp.com",
   projectId: "roamr-55afb",
@@ -18,6 +29,17 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
+
+// After sign-out / account deletion we set this flag and reload; the offline cache
+// (DMs, trip plans, medical info) is deleted here, BEFORE Firestore opens it. Deleting
+// it from the running app hung, because the open database blocks the delete.
+export const WIPE_CACHE_FLAG = "roamr_wipe_cache";
+try {
+  if (localStorage.getItem(WIPE_CACHE_FLAG) === "1") {
+    localStorage.removeItem(WIPE_CACHE_FLAG);
+    indexedDB.deleteDatabase(`firestore/[DEFAULT]/${firebaseConfig.projectId}/main`);
+  }
+} catch { /* storage unavailable (private mode) — nothing cached to wipe */ }
 
 // App Check (bot/abuse + rate-limit protection). Set VITE_RECAPTCHA_SITE_KEY to enable.
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
@@ -38,14 +60,13 @@ export const db = initializeFirestore(app, {
 
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
 
-// Local dev against the Firebase emulators: `VITE_USE_EMULATORS=1 npm run dev`
-// with `npx firebase emulators:start --only auth,firestore,storage` running.
-// Never active in production builds.
-if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS) {
+if (useEmulators) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectStorageEmulator(storage, "127.0.0.1", 9199);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
 }
 
 const analyticsConsent = typeof localStorage !== "undefined" && localStorage.getItem("roamr_analytics_consent") === "yes";

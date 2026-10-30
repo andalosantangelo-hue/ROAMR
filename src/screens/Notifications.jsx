@@ -8,6 +8,7 @@ import VerifyCard from "../components/VerifyBanner.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import { initials, titleCase } from "../lib/util.js";
 import { Heart, Comment, Tribes as TribesIcon, Profile as UserIcon, Activities as ActIcon } from "../components/Icons.jsx";
+import { SkeletonRegion, ListRowSkeleton } from "../components/skeletons";
 
 const ICON = { like: Heart, comment: Comment, join: ActIcon, tribe: TribesIcon, follow: UserIcon, message: Comment };
 
@@ -63,7 +64,7 @@ function Avatar({ src, name, onClick, type }) {
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { notifications, markNotifsRead } = useAuth();
+  const { notifications, notificationsLoading, markNotifsRead } = useAuth();
   const [people, setPeople] = useState({}); // uid -> { displayName, photoURL }
 
   useEffect(() => { markNotifsRead(); /* mark read on open */ }, []); // eslint-disable-line
@@ -94,7 +95,11 @@ export default function Notifications() {
       </div>
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <VerifyCard />
-        {notifications.length === 0 ? (
+        {notificationsLoading ? (
+          <SkeletonRegion label="Loading notifications">
+            {[0, 1, 2, 3, 4, 5].map((i) => <ListRowSkeleton key={i} variant="notification" />)}
+          </SkeletonRegion>
+        ) : notifications.length === 0 ? (
           <div className="text-center text-muted mt-20 px-8">
             <p className="font-semibold text-brand-navy">You're all caught up</p>
             <p className="text-sm mt-1">Likes, comments, joins and follows show up here.</p>
@@ -112,7 +117,7 @@ export default function Notifications() {
               <Avatar src={photo} name={name} type={n.type} onClick={toProfile} />
               <button onClick={open} className="flex-1 min-w-0 text-left min-h-[44px]">
                 <p className="text-ink text-[14px] leading-snug">
-                  <span className="font-semibold">{name}</span> {actionText(n, rawName)}
+                  {n.actorUid ? <><span className="font-semibold">{name}</span> {actionText(n, rawName)}</> : (n.action || n.text)}
                   <span className="text-muted text-[12px] ml-1.5">{fmt(n.createdAt)}</span>
                 </p>
               </button>

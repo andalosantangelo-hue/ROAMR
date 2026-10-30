@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { isSafeMediaUrl } from "../lib/util.js";
 
 // Drag-to-look viewer for equirectangular 360° photos. Pure CSS background
 // panning — no WebGL dependency — so it's light enough for the feed.
@@ -15,7 +16,7 @@ function Pano360({ src, alt }) {
   return (
     <div role="img" aria-label={alt || "360° photo"} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
       className="relative w-full h-full cursor-grab active:cursor-grabbing touch-pan-y select-none"
-      style={{ backgroundImage: `url(${src})`, backgroundSize: "auto 100%", backgroundRepeat: "repeat-x", backgroundPosition: `${x}% 50%` }}>
+      style={{ backgroundImage: `url("${encodeURI(src).replace(/"/g, "%22")}")`, backgroundSize: "auto 100%", backgroundRepeat: "repeat-x", backgroundPosition: `${x}% 50%` }}>
       <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded-md bg-black/55 text-white">360° · drag to look</span>
     </div>
   );
@@ -37,9 +38,12 @@ function AudioCard({ m }) {
 
 // Swipeable media strip for a post. Falls back to the legacy single `photo`.
 export default function PostMedia({ post }) {
-  const media = Array.isArray(post.media) && post.media.length
+  const all = Array.isArray(post.media) && post.media.length
     ? post.media
     : post.photo ? [{ type: "image", url: post.photo }] : [];
+  // Only our own bucket is ever fetched (see isSafeMediaUrl); anything else is dropped.
+  const media = all.filter((m) => m && isSafeMediaUrl(m.url))
+    .map((m) => (m.poster && !isSafeMediaUrl(m.poster) ? { ...m, poster: undefined } : m));
   const [idx, setIdx] = useState(0);
   if (!media.length) return null;
 

@@ -71,7 +71,7 @@ describe("posts", () => {
   it("accepts story body, media list and geo pin", async () => {
     await assertSucceeds(setDoc(doc(alice(), "posts/p6"), {
       ...post("alice"), body: "Long day, worth it.", geo: { lat: 37.93, lng: -107.81 },
-      media: [{ type: "video", url: "https://x/v.mp4", poster: "https://x/p.jpg" }, { type: "image", url: "https://x/i.jpg", is360: true }],
+      media: [{ type: "video", url: "https://firebasestorage.googleapis.com/v0/b/x/o/v.mp4", poster: "https://firebasestorage.googleapis.com/v0/b/x/o/p.jpg" }, { type: "image", url: "https://firebasestorage.googleapis.com/v0/b/x/o/i.jpg", is360: true }],
     }));
   });
   it("rejects oversized body, >10 media, or malformed geo", async () => {

@@ -3,6 +3,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useMessages } from "../store/MessagesContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import { Profile as UserIcon, Comment } from "../components/Icons.jsx";
+import { SkeletonRegion, ListRowSkeleton } from "../components/skeletons";
 
 export default function Messages() {
   const nav = useNavigate();
@@ -19,7 +20,9 @@ export default function Messages() {
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {loading ? (
-          <p className="text-center text-muted text-sm mt-10">Loading…</p>
+          <SkeletonRegion label="Loading messages" className="divide-y divide-black/5">
+            {[0, 1, 2, 3, 4, 5].map((i) => <ListRowSkeleton key={i} />)}
+          </SkeletonRegion>
         ) : threads.length === 0 ? (
           <div className="flex flex-col items-center text-center mt-20 px-8">
             <span className="w-20 h-20 rounded-2xl bg-brand-navy text-brand-greenBright grid place-items-center mb-5">

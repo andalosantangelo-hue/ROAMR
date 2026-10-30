@@ -2,7 +2,7 @@ import { useState } from "react";
 import SearchBar from "../components/SearchBar.jsx";
 import FilterSheet from "../components/FilterSheet.jsx";
 import TribeCard from "../components/TribeCard.jsx";
-import { RowSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, TribeCardSkeleton } from "../components/skeletons";
 import { useTribes } from "../store/TribesContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
@@ -45,7 +45,9 @@ export default function Tribes() {
         onFilter={() => setSheet(true)} filterActive={active} />
       <div className="space-y-3 mt-4">
         {loading ? (
-          [0, 1, 2, 3, 4].map((i) => <RowSkeleton key={i} />)
+          <SkeletonRegion label="Loading tribes" className="space-y-3">
+            {[0, 1, 2, 3, 4].map((i) => <TribeCardSkeleton key={i} />)}
+          </SkeletonRegion>
         ) : filtered.length === 0 ? (
           <p className="text-center text-muted text-sm mt-12">
             {(q || active) ? "No tribes match your filters." : (SCOPE_EMPTY[scope] || "No tribes yet.")}

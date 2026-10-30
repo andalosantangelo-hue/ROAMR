@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 import LocationField from "../components/LocationField.jsx";
 import { usePosts } from "../store/PostsContext.jsx";
@@ -89,12 +90,12 @@ export default function ComposePost() {
     setBusy(true); setError(""); setProgress(0);
     try {
       await addPost({
-        title: title.trim(), body: body.trim(), location: (place?.label || "").trim(),
+        title: title.trim(), body: body.trim(), location: (place?.label || "").trim().slice(0, 120),
         geo: place?.lat != null ? { lat: place.lat, lng: place.lng } : null,
         rating, media, onProgress: setProgress,
       });
-      nav("/app/home");
-    } catch (e) { setError(e.message || "Could not post."); setBusy(false); }
+      nav("/app/home", { replace: true }); // Back must not return to the emptied form
+    } catch (e) { setError(friendlyError(e, "Your post couldn't be shared. Please try again.")); setBusy(false); }
   };
 
   const hasMedia = media.length > 0;

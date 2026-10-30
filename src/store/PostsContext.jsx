@@ -1,12 +1,13 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   collection, collectionGroup, addDoc, setDoc, deleteDoc, doc,
   onSnapshot, query, orderBy, where, limit, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
+import { writeOrQueue, requireOnlineForPhotos } from "../lib/image.js";
 import { uploadMedia } from "../lib/media.js";
-import { toggleSet } from "../lib/util.js";
+import { toggleSet, isDemoId } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
 import { posts as seed } from "../data/feed.js";
@@ -19,22 +20,28 @@ export function PostsProvider({ children }) {
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const pending = useRef(new Set()); // ids with a like/save write in flight (ignores double taps)
 
+  // Re-subscribes whenever the signed-in user changes. Subscribing once at app start
+  // meant a user who signed in (or signed up) during the session got a permission
+  // error before auth and never retried — a brand-new user saw an empty feed until
+  // they restarted the app.
+  const uid = user?.uid;
   useEffect(() => {
-    // Rules require sign-in to read; (re)subscribe once auth resolves / user changes.
-    if (!user) return undefined;
+    if (!uid) { setRemote([]); setLoading(false); return; }
+    setLoading(true);
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20));
     return onSnapshot(
       q,
       (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (err) => { console.warn("Firestore posts:", err.message); setLoading(false); }
     );
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uid]);
 
   useEffect(() => {
-    if (!user) { setLikedIds(new Set()); setSavedIds(new Set()); return; }
+    if (!uid) { setLikedIds(new Set()); setSavedIds(new Set()); return; }
     const ul = onSnapshot(
-      query(collectionGroup(db, "likes"), where("uid", "==", user.uid)),
+      query(collectionGroup(db, "likes"), where("uid", "==", uid)),
       (snap) => {
         const s = new Set();
         snap.forEach((d) => {
@@ -46,42 +53,47 @@ export function PostsProvider({ children }) {
       (e) => console.warn("likes:", e.message)
     );
     const us = onSnapshot(
-      collection(db, "users", user.uid, "saves"),
+      collection(db, "users", uid, "saves"),
       (snap) => setSavedIds(new Set(snap.docs.map((d) => d.id))),
       (e) => console.warn("saves:", e.message)
     );
     return () => { ul(); us(); };
-  }, [user]);
+  }, [uid]);
 
   const base = remote.length ? remote : (import.meta.env.DEV ? seed : []);
   const posts = base.filter((p) => !blockedIds.has(p.authorId));
 
   const addPost = async ({ title, body = "", location, geo = null, rating, media = [], file, onProgress }) => {
     if (!user) return;
+    requireOnlineForPhotos(!!file || media.length > 0);
     // Legacy single-photo callers still work.
     const items = media.length ? media : (file ? [{ kind: "image", file, url: URL.createObjectURL(file) }] : []);
     const uploaded = items.length ? await uploadMedia(user.uid, items, onProgress) : [];
     const cover = uploaded.find((m) => m.type === "image" && !m.is360) || uploaded.find((m) => m.poster) || uploaded.find((m) => m.type === "image");
-    await addDoc(collection(db, "posts"), {
+    await writeOrQueue(addDoc(collection(db, "posts"), {
       authorId: user.uid,
-      authorName: profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer"),
+      authorName: (profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer")).slice(0, 40),
       authorPhotoURL: profile?.photoURL || user.photoURL || null,
       title, body: body || "", location: location || "", geo: geo || null,
       photo: cover ? (cover.poster || cover.url) : null, media: uploaded, rating: rating || 0,
       likeCount: 0, commentCount: 0, createdAt: serverTimestamp(),
-    });
+    }));
     tapSuccess();
     track("create_success", { type: "post", media: uploaded.length });
   };
 
+  // Writes for ANY real post. The old "is it in the latest 20?" check skipped the
+  // write for older posts (e.g. liked from someone's profile) while the heart still
+  // filled — the like silently vanished on reload. Only demo items are skipped now.
   const toggleLike = async (post) => {
     if (!user) return;
     const id = post.id;
-    const isRemote = remote.some((p) => p.id === id);
+    if (pending.current.has(`like:${id}`)) return;
     const was = likedIds.has(id);
     tapLight();
     setLikedIds((prev) => toggleSet(prev, id));
-    if (!isRemote) return;
+    if (isDemoId(id)) return;
+    pending.current.add(`like:${id}`);
     try {
       const lref = doc(db, "posts", id, "likes", user.uid);
       if (was) { await deleteDoc(lref); }            // likeCount maintained by Cloud Function
@@ -89,29 +101,34 @@ export function PostsProvider({ children }) {
     } catch (e) {
       setLikedIds((prev) => toggleSet(prev, id));
       console.warn("like:", e.message);
-    }
+    } finally { pending.current.delete(`like:${id}`); }
   };
 
-  const toggleSave = async (post, collectionName = "posts") => {
+  // Shared by posts and activities (collectionName says which). Saves are keyed by
+  // "<collection>_<id>" so a post and an activity with the same id can't collide.
+  const toggleSave = async (item, collectionName = "posts") => {
     if (!user) return;
-    const id = post.id;
-    const isRemote = remote.some((p) => p.id === id);
-    const was = savedIds.has(id);
+    const key = collectionName === "posts" ? item.id : `${collectionName}_${item.id}`;
+    if (pending.current.has(`save:${key}`)) return;
+    const was = savedIds.has(key);
     tapLight();
-    setSavedIds((prev) => toggleSet(prev, id));
-    if (!isRemote) return;
+    setSavedIds((prev) => toggleSet(prev, key));
+    if (isDemoId(item.id)) return;
+    pending.current.add(`save:${key}`);
     try {
-      const sref = doc(db, "users", user.uid, "saves", id);
+      const sref = doc(db, "users", user.uid, "saves", key);
       if (was) await deleteDoc(sref);
-      else await setDoc(sref, { postId: id, collection: collectionName, createdAt: serverTimestamp() });
+      else await setDoc(sref, { postId: item.id, collection: collectionName, createdAt: serverTimestamp() });
     } catch (e) {
-      setSavedIds((prev) => toggleSet(prev, id));
+      setSavedIds((prev) => toggleSet(prev, key));
       console.warn("save:", e.message);
-    }
+    } finally { pending.current.delete(`save:${key}`); }
   };
+  const isSaved = (item, collectionName = "posts") =>
+    savedIds.has(collectionName === "posts" ? item.id : `${collectionName}_${item.id}`);
 
   return (
-    <PostsContext.Provider value={{ posts, loading, likedIds, savedIds, addPost, toggleLike, toggleSave }}>
+    <PostsContext.Provider value={{ posts, loading, likedIds, savedIds, isSaved, addPost, toggleLike, toggleSave }}>
       {children}
     </PostsContext.Provider>
   );

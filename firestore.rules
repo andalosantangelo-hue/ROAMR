@@ -8,12 +8,71 @@ service cloud.firestore {
     function owns(field)       { return signedIn() && resource.data[field] == request.auth.uid; }
     function keysOnly(allowed) { return request.resource.data.keys().hasOnly(allowed); }
     function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
+    function changedOnly(fields) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields); }
     function strMax(f, n)      { return request.resource.data[f] is string && request.resource.data[f].size() <= n; }
+    function userDoc(uid)      { return get(/databases/$(database)/documents/users/$(uid)).data; }
+
+    // ---- Field validators --------------------------------------------------------
+    // Every client-written field is type- and size-checked. A post whose `location` is
+    // a map instead of a string used to be accepted, and React then threw while
+    // rendering the global feed — one bad post crashed the app for every user.
+    function d()               { return request.resource.data; }
+    function has(f)            { return f in d(); }
+    function optStr(f, n)      { return !has(f) || d()[f] == null || (d()[f] is string && d()[f].size() <= n); }
+    function reqStr(f, lo, n)  { return d()[f] is string && d()[f].size() >= lo && d()[f].size() <= n; }
+    function optList(f, n)     { return !has(f) || d()[f] == null || (d()[f] is list && d()[f].size() <= n); }
+    function optMap(f, n)      { return !has(f) || d()[f] == null || (d()[f] is map && d()[f].size() <= n); }
+    function optBool(f)        { return !has(f) || d()[f] is bool; }
+    function optNum(f, lo, hi) { return !has(f) || (d()[f] is number && d()[f] >= lo && d()[f] <= hi); }
+    // Image URLs must point at our own Storage bucket or Google-hosted avatars, so a
+    // post can't embed an attacker's tracking pixel that logs every viewer's IP.
+    // The 127.0.0.1:9199 alternative is the local Storage emulator used in testing.
+    function imgUrl(v)         { return v is string && v.size() <= 2000
+                                   && v.matches('^(https://(firebasestorage\\.googleapis\\.com|[a-z0-9-]+\\.googleusercontent\\.com)/|http://127\\.0\\.0\\.1:9199/).*'); }
+    function optImg(f)         { return !has(f) || d()[f] == null || d()[f] == '' || imgUrl(d()[f]); }
+
+    // Rules allow at most 1000 evaluated expressions per request; a strict per-field
+    // check of all ~40 profile fields exceeded it on a fully filled-out profile, so
+    // every full save was denied. Fields shown across the app (name, photo, bio, home
+    // base, messaging settings) are strictly typed; the rest are size-capped (a
+    // non-list/string/map fails .size() and is denied) and rendered defensively on the
+    // profile page.
+    function validUser() {
+      let x = request.resource.data;
+      return (x.get('displayName', null) == null || (x.displayName is string && x.displayName.size() <= 40))
+        && (x.get('photoURL', null) == null || x.photoURL == '' || imgUrl(x.photoURL))
+        && (x.get('bio', '') is string && x.get('bio', '').size() <= 300)
+        && (x.get('location', '') is string && x.get('location', '').size() <= 80)
+        && x.get('whoCanMessage', 'everyone') in ['everyone', 'verified', 'following']
+        && x.get('verifiedOnly', false) is bool && x.get('womenOnly', false) is bool
+        && x.get('photos', []).size() <= 6 && x.get('prompts', []).size() <= 4
+        && x.get('interests', []).size() <= 10 && x.get('subInterests', []).size() <= 40
+        && x.get('skillLevels', {}).size() <= 10 && x.get('experience', {}).size() <= 10
+        && x.get('languages', []).size() <= 12 && x.get('terrain', []).size() <= 12
+        && x.get('tripDuration', []).size() <= 8 && x.get('availability', []).size() <= 8
+        && x.get('seasons', []).size() <= 4 && x.get('lookingFor', []).size() <= 12
+        && x.get('partnerWants', []).size() <= 12 && x.get('dealbreakers', []).size() <= 12
+        && x.get('certifications', []).size() <= 20 && x.get('gearShare', []).size() <= 20
+        && x.get('bucketList', []).size() <= 12 && x.get('recentTrips', '').size() <= 300
+        && x.get('trainingFor', '').size() <= 80 && x.get('pets', '').size() <= 40
+        && x.get('intensity', '').size() <= 40 && x.get('pace', '').size() <= 40
+        && x.get('risk', '').size() <= 40 && x.get('type2', '').size() <= 40
+        && x.get('planning', '').size() <= 40 && x.get('fitness', '').size() <= 40
+        && x.get('leadTime', '').size() <= 40 && x.get('willTravel', '').size() <= 40
+        && x.get('style', '').size() <= 40;
+    }
     // Optional {lat,lng} map (or null) used by the map view + radius filter.
     function geoOk() {
-      return !('geo' in request.resource.data) || request.resource.data.geo == null
-        || (request.resource.data.geo is map && request.resource.data.geo.keys().hasOnly(['lat','lng'])
-            && request.resource.data.geo.lat is number && request.resource.data.geo.lng is number);
+      return !has('geo') || d().geo == null
+        || (d().geo is map && d().geo.keys().hasOnly(['lat','lng'])
+            && d().geo.lat is number && d().geo.lng is number);
+    }
+    // Post media (lib/media.js): up to 10 items. Only the shape is checked here — a
+    // per-item URL check for 10 items exceeds the 1000-expression limit. URL safety is
+    // enforced where there's no budget: PostMedia renders only our own bucket
+    // (isSafeMediaUrl) and onPostCreate deletes posts carrying foreign media URLs.
+    function mediaOk() {
+      return !has('media') || (d().media is list && d().media.size() <= 10);
     }
 
     // Collection-group reads of the current user's own presence docs
@@ -26,54 +85,71 @@ service cloud.firestore {
       // Trust/subscription/counter fields are server-maintained. On create they must
       // be at safe defaults — otherwise a client could self-grant verified/premium/
       // ratings/vouches by writing its own user doc directly via the SDK.
+      // `gender` lives in private/data (it was publicly readable here).
       allow create: if isUser(uid)
         && keysOnly(['uid','displayName','photoURL','updatedAt',
-                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','bio','location','subscription','followingCount','followerCount','createdAt'])
-        && request.resource.data.get('verified', false) == false
-        && request.resource.data.get('verifiedTier', null) == null
-        && request.resource.data.get('adventuresCompleted', 0) == 0
-        && request.resource.data.get('ratingAvg', 0) == 0
-        && request.resource.data.get('ratingCount', 0) == 0
-        && request.resource.data.get('vouchCount', 0) == 0
-        && request.resource.data.get('followerCount', 0) == 0
-        && request.resource.data.get('followingCount', 0) == 0
-        && request.resource.data.get('subscription', {'tier':'basic'}).tier == 'basic';
+                     'interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','whoCanMessage','verifiedOnly','womenOnly','bio','location','subscription','followingCount','followerCount','createdAt'])
+        && d().uid == uid
+        && d().get('verified', false) == false
+        && d().get('verifiedTier', null) == null
+        && d().get('adventuresCompleted', 0) == 0
+        && d().get('ratingAvg', 0) == 0
+        && d().get('ratingCount', 0) == 0
+        && d().get('vouchCount', 0) == 0
+        && d().get('followerCount', 0) == 0
+        && d().get('followingCount', 0) == 0
+        && d().get('subscription', {'tier':'basic'}).tier == 'basic'
+        && validUser();
       // owner-only; counters + subscription are server-maintained
       allow update: if isUser(uid)
-        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','gender','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt'])
-        && unchanged(['uid','followerCount','followingCount','subscription','createdAt','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount']);
-      allow delete: if isUser(uid);
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt','gender'])
+        && unchanged(['uid','followerCount','followingCount','subscription','createdAt','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount'])
+        // Legacy docs may still carry a public `gender`; it can be kept or removed
+        // (migrated to private/data) but never newly written here.
+        && (!has('gender') || (resource.data.keys().hasAny(['gender']) && d().gender == resource.data.gender))
+        && validUser();
+      // Deleting the profile doc directly would reset ratings/vouches to zero on
+      // re-create (laundering bad reviews). Account deletion runs server-side via the
+      // deleteAccount callable, which removes everything with the Admin SDK.
+      allow delete: if false;
 
-      // Private profile data (email, phone, push tokens, prefs) — owner only.
+      // Private profile data (email, phone, push tokens, prefs, gender) — owner only.
       match /private/{doc} {
-        allow read, write: if isUser(uid);
+        allow read, delete: if isUser(uid);
+        allow write: if isUser(uid)
+          && (!('gender' in request.resource.data) || request.resource.data.gender in ['', 'woman', 'man', 'nonbinary', 'na'])
+          && (!('fcmTokens' in request.resource.data) || (request.resource.data.fcmTokens is list && request.resource.data.fcmTokens.size() <= 10));
       }
 
       match /saves/{postId} {
         allow read: if isUser(uid);
-        allow create: if isUser(uid) && keysOnly(['postId','collection','createdAt']);
+        allow create: if isUser(uid) && keysOnly(['postId','collection','createdAt'])
+          && request.resource.data.collection in ['posts', 'activities'];
         allow delete: if isUser(uid);
       }
       match /following/{targetUid} {
         allow read: if signedIn();
-        allow create: if isUser(uid) && keysOnly(['targetUid','createdAt']);
+        allow create: if isUser(uid) && targetUid != uid && keysOnly(['targetUid','createdAt'])
+          && request.resource.data.targetUid == targetUid;
         allow delete: if isUser(uid);
       }
       match /blocked/{targetUid} {
         allow read, delete: if isUser(uid);
-        allow create: if isUser(uid) && keysOnly(['targetUid','createdAt']);
+        allow create: if isUser(uid) && targetUid != uid && keysOnly(['targetUid','createdAt']);
       }
       match /notifications/{nid} {
         allow read: if isUser(uid);
-        allow update: if isUser(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-        allow create, delete: if false; // server-only
+        allow update: if isUser(uid) && changedOnly(['read']) && request.resource.data.read is bool;
+        allow create: if false; // server-only
+        allow delete: if isUser(uid);
       }
       match /followers/{fid} { allow read: if signedIn(); allow write: if false; }
       // Vouches from people you've adventured with (one per voucher).
       match /references/{fromUid} {
         allow read: if signedIn();
         allow create: if isUser(fromUid) && fromUid != uid && created('fromUid')
-          && keysOnly(['fromUid','fromName','fromPhoto','text','createdAt']) && strMax('text', 600);
+          && keysOnly(['fromUid','fromName','fromPhoto','text','createdAt']) && strMax('text', 600)
+          && optStr('fromName', 40) && optImg('fromPhoto');
         allow delete: if isUser(fromUid);
       }
       // Two-way post-trip reviews (one per reviewer). Counters are server-maintained.
@@ -81,77 +157,109 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create: if isUser(reviewerUid) && reviewerUid != uid && created('reviewerId')
           && keysOnly(['reviewerId','reviewerName','reviewerPhoto','ratings','overall','text','tripId','visible','createdAt'])
-          && strMax('text', 1000)
+          && strMax('text', 1000) && optStr('reviewerName', 40) && optImg('reviewerPhoto') && optMap('ratings', 8)
           && request.resource.data.overall is number
           && request.resource.data.overall >= 1 && request.resource.data.overall <= 5;
         // overall/ratings are immutable post-create so the server-maintained ratingAvg
         // (recomputed only on create/delete) can't drift out of sync via edits.
-        allow update: if isUser(reviewerUid) && unchanged(['reviewerId','overall','ratings','tripId','createdAt']);
+        allow update: if isUser(reviewerUid) && unchanged(['reviewerId','overall','ratings','tripId','createdAt'])
+          && strMax('text', 1000);
         allow delete: if isUser(reviewerUid);
       }
     }
 
+    // ---- Posts ------------------------------------------------------------------
+    function validPost() {
+      return keysOnly(['authorId','authorName','authorPhotoURL','title','body','location','geo','photo','media','rating','likeCount','commentCount','createdAt'])
+        && reqStr('title', 1, 300) && optStr('body', 2200) && optStr('authorName', 40) && optImg('authorPhotoURL')
+        && optStr('location', 120) && geoOk() && optImg('photo') && mediaOk() && optNum('rating', 0, 5);
+    }
+    function validComment() {
+      return keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt'])
+        && reqStr('text', 1, 2000) && optStr('authorName', 40) && optImg('authorPhotoURL');
+    }
     match /posts/{postId} {
       allow read: if signedIn();
       allow create: if signedIn() && created('authorId')
         && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
-        && keysOnly(['authorId','authorName','authorPhotoURL','title','body','location','geo','photo','media','rating','likeCount','commentCount','createdAt'])
-        && strMax('title', 300)
-        && (!('body' in request.resource.data) || strMax('body', 2200))
-        && (!('media' in request.resource.data) || (request.resource.data.media is list && request.resource.data.media.size() <= 10))
-        && geoOk();
-      allow update: if owns('authorId') && unchanged(['authorId','likeCount','commentCount','createdAt']);
+        && validPost();
+      allow update: if owns('authorId') && unchanged(['authorId','likeCount','commentCount','createdAt']) && validPost();
       allow delete: if owns('authorId');
       match /likes/{uid} {
         allow read: if signedIn();
-        allow create: if isUser(uid) && keysOnly(['uid','createdAt']);
+        allow create: if isUser(uid) && keysOnly(['uid','createdAt']) && request.resource.data.uid == uid;
         allow delete: if isUser(uid);
       }
       match /comments/{cid} {
         allow read: if signedIn();
-        allow create: if signedIn() && created('authorId')
-          && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt']) && strMax('text', 2000);
-        allow update, delete: if owns('authorId');
+        allow create: if signedIn() && created('authorId') && validComment()
+          && exists(/databases/$(database)/documents/posts/$(postId));
+        // Authors may edit only the text — authorId/authorName can no longer be
+        // rewritten to make a comment look like someone else wrote it.
+        allow update: if owns('authorId') && changedOnly(['text']) && reqStr('text', 1, 2000);
+        // The post's author can also remove comments on their own post (moderation).
+        allow delete: if owns('authorId')
+          || (signedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
       }
     }
 
+    // ---- Activities -------------------------------------------------------------
+    function validActivity() {
+      return keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','geo','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
+        && reqStr('text', 1, 2000) && optStr('authorName', 40) && optImg('authorPhotoURL') && optImg('photo')
+        && optStr('location', 120) && geoOk() && optStr('when', 40) && optBool('dmOpen')
+        && (!has('skillLevel') || d().skillLevel in ['All Levels', 'Beginner', 'Intermediate', 'Advanced']);
+    }
     match /activities/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && created('authorId')
         && request.resource.data.attendeeCount == 0 && request.resource.data.likeCount == 0 && request.resource.data.commentCount == 0
-        && keysOnly(['authorId','authorName','authorPhotoURL','text','photo','location','geo','when','skillLevel','dmOpen','attendeeCount','recentAttendees','likeCount','commentCount','createdAt'])
-        && strMax('text', 2000) && geoOk();
-      allow update: if owns('authorId') && unchanged(['authorId','attendeeCount','recentAttendees','likeCount','commentCount','createdAt']);
+        && request.resource.data.recentAttendees == []
+        && validActivity();
+      allow update: if owns('authorId') && unchanged(['authorId','attendeeCount','recentAttendees','likeCount','commentCount','createdAt']) && validActivity();
       allow delete: if owns('authorId');
       match /attendees/{uid} {
         allow read: if signedIn();
-        allow create: if isUser(uid) && keysOnly(['uid','displayName','photoURL','createdAt']);
+        allow create: if isUser(uid) && keysOnly(['uid','displayName','photoURL','createdAt'])
+          && request.resource.data.uid == uid && optStr('displayName', 40) && optImg('photoURL');
         allow delete: if isUser(uid);
       }
       match /likes/{uid} {
         allow read: if signedIn();
-        allow create: if isUser(uid) && keysOnly(['uid','createdAt']);
+        allow create: if isUser(uid) && keysOnly(['uid','createdAt']) && request.resource.data.uid == uid;
         allow delete: if isUser(uid);
       }
       match /comments/{cid} {
         allow read: if signedIn();
-        allow create: if signedIn() && created('authorId')
-          && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt']) && strMax('text', 2000);
-        allow update, delete: if owns('authorId');
+        allow create: if signedIn() && created('authorId') && validComment()
+          && exists(/databases/$(database)/documents/activities/$(id));
+        allow update: if owns('authorId') && changedOnly(['text']) && reqStr('text', 1, 2000);
+        allow delete: if owns('authorId')
+          || (signedIn() && get(/databases/$(database)/documents/activities/$(id)).data.authorId == request.auth.uid);
       }
     }
 
+    // ---- Tribes -----------------------------------------------------------------
+    function validTribe() {
+      return keysOnly(['name','img','category','categories','location','description','memberCount','ownerId','createdAt'])
+        && reqStr('name', 1, 120) && optImg('img') && optStr('category', 40) && optList('categories', 10)
+        && optStr('location', 120) && optStr('description', 500);
+    }
     match /tribes/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && created('ownerId') && request.resource.data.memberCount == 0
-        && keysOnly(['name','img','category','categories','location','description','memberCount','ownerId','createdAt'])
-        && strMax('name', 120);
-      allow update: if owns('ownerId') && unchanged(['ownerId','memberCount','createdAt']);
+      allow create: if signedIn() && created('ownerId') && request.resource.data.memberCount == 0 && validTribe();
+      allow update: if owns('ownerId') && unchanged(['ownerId','memberCount','createdAt']) && validTribe();
       allow delete: if owns('ownerId');
       match /members/{uid} {
         allow read: if signedIn();
-        allow create: if isUser(uid) && keysOnly(['uid','role','createdAt']);
-        allow delete: if isUser(uid);
+        // Role can't be self-assigned: only the tribe's real owner may hold 'owner'.
+        allow create: if isUser(uid) && keysOnly(['uid','role','createdAt']) && request.resource.data.uid == uid
+          && (request.resource.data.role == 'member'
+              || (request.resource.data.role == 'owner'
+                  && get(/databases/$(database)/documents/tribes/$(id)).data.ownerId == uid));
+        // Members can leave; the owner can remove members (moderation).
+        allow delete: if isUser(uid)
+          || (signedIn() && get(/databases/$(database)/documents/tribes/$(id)).data.ownerId == request.auth.uid);
       }
       // Group chat — members only.
       match /messages/{mid} {
@@ -160,63 +268,105 @@ service cloud.firestore {
         allow create: if signedIn() && created('authorId')
           && exists(/databases/$(database)/documents/tribes/$(id)/members/$(request.auth.uid))
           && keysOnly(['authorId','authorName','authorPhotoURL','text','createdAt'])
-          && strMax('text', 4000);
-        allow update, delete: if false;
+          && reqStr('text', 1, 4000) && optStr('authorName', 40) && optImg('authorPhotoURL');
+        allow update: if false;
+        // Authors can delete their own messages; tribe owners can moderate.
+        allow delete: if owns('authorId')
+          || (signedIn() && get(/databases/$(database)/documents/tribes/$(id)).data.ownerId == request.auth.uid);
       }
     }
 
-    // Direct-message threads — only the two participants can read or post.
+    // ---- Direct messages --------------------------------------------------------
+    // Thread id is bound to its two participants ("<lowerUid>__<higherUid>"), so there
+    // is exactly one thread per pair — no duplicate-thread spam. Display names/photos
+    // are filled in server-side (onThreadCreate) from the users' real profiles, so a
+    // sender can't pose as "ROAMR Safety Team". The recipient's messaging settings
+    // (who can message me / verified only / women only) are enforced here.
     match /threads/{tid} {
       function participants() { return get(/databases/$(database)/documents/threads/$(tid)).data.participants; }
       function dmOther(list)  { return list[0] == request.auth.uid ? list[1] : list[0]; }
-      // True if either user has blocked the other — blocks DMs in both directions.
       function blockedPair(a, b) {
         return exists(/databases/$(database)/documents/users/$(a)/blocked/$(b))
             || exists(/databases/$(database)/documents/users/$(b)/blocked/$(a));
       }
-      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      function senderVerified() { return userDoc(request.auth.uid).get('verified', false) == true; }
+      function recipientAllows(r) {
+        let prefs = userDoc(r);
+        let who = prefs.get('whoCanMessage', 'everyone');
+        return (who != 'verified' || senderVerified())
+          && (who != 'following' || exists(/databases/$(database)/documents/users/$(r)/following/$(request.auth.uid)))
+          && (prefs.get('verifiedOnly', false) != true || senderVerified())
+          && (prefs.get('womenOnly', false) != true
+              || get(/databases/$(database)/documents/users/$(request.auth.uid)/private/data).data.get('gender', '') == 'woman');
+      }
+      // A thread that doesn't exist yet may be probed (that's how "Message" checks
+      // whether to create one); existing threads are visible to participants only.
+      allow read: if signedIn() && (resource == null || request.auth.uid in resource.data.participants);
       allow create: if signedIn()
-        && request.auth.uid in request.resource.data.participants
-        && request.resource.data.participants.size() == 2
         && keysOnly(['participants','participantNames','participantPhotos','lastMessage','lastAt','createdAt'])
-        && !blockedPair(request.auth.uid, dmOther(request.resource.data.participants));
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants[0] < request.resource.data.participants[1]
+        && tid == request.resource.data.participants[0] + '__' + request.resource.data.participants[1]
+        && request.resource.data.participantNames == {}
+        && request.resource.data.participantPhotos == {}
+        && request.resource.data.lastMessage == ''
+        && exists(/databases/$(database)/documents/users/$(dmOther(request.resource.data.participants)))
+        && !blockedPair(request.auth.uid, dmOther(request.resource.data.participants))
+        && recipientAllows(dmOther(request.resource.data.participants));
       allow update: if signedIn()
         && request.auth.uid in resource.data.participants
-        && unchanged(['participants','createdAt']);
+        && changedOnly(['lastMessage','lastAt'])
+        && strMax('lastMessage', 4000)
+        && !blockedPair(request.auth.uid, dmOther(resource.data.participants));
       allow delete: if false;
       match /messages/{mid} {
         allow read: if signedIn() && request.auth.uid in participants();
         allow create: if signedIn() && created('senderId')
           && request.auth.uid in participants()
-          && keysOnly(['senderId','text','createdAt']) && strMax('text', 4000)
+          && keysOnly(['senderId','text','createdAt']) && reqStr('text', 1, 4000)
           && !blockedPair(request.auth.uid, dmOther(participants()));
         allow update, delete: if false;
       }
     }
 
+    // ---- Marketplace ------------------------------------------------------------
+    function validListing() {
+      return keysOnly(['sellerId','sellerName','title','description','price','currency','type','category','photos','status','createdAt'])
+        && reqStr('title', 1, 200) && optStr('sellerName', 40) && optStr('description', 2000)
+        && d().price is number && d().price >= 0 && d().price <= 100000
+        && (!has('currency') || d().currency == 'USD')
+        && (!has('type') || d().type in ['sell', 'rent', 'free', 'trade'])
+        && optStr('category', 40) && optList('photos', 6)
+        && (!has('status') || d().status in ['active', 'reserved', 'sold']);
+    }
     match /listings/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && created('sellerId')
-        && keysOnly(['sellerId','sellerName','title','description','price','currency','type','category','photos','status','createdAt'])
-        && strMax('title', 200) && request.resource.data.price is number && request.resource.data.price >= 0;
-      allow update: if owns('sellerId') && unchanged(['sellerId','createdAt']);
+      allow create: if signedIn() && created('sellerId') && validListing();
+      allow update: if owns('sellerId') && unchanged(['sellerId','createdAt']) && validListing();
       allow delete: if owns('sellerId');
     }
 
     match /reports/{id} {
       allow create: if signedIn() && created('reporterId')
-        && keysOnly(['reporterId','targetType','targetId','targetOwnerId','reason','note','status','createdAt']);
+        && keysOnly(['reporterId','targetType','targetId','targetOwnerId','reason','note','status','createdAt'])
+        && optStr('targetType', 40) && optStr('targetId', 200) && optStr('targetOwnerId', 128)
+        && optStr('reason', 80) && optStr('note', 1000) && optStr('status', 20);
       allow read, update, delete: if false; // triage in console only
     }
 
     // Identity verification submissions — write-only for the owner; reviewed out-of-band.
-    // status is forced to 'pending' so a user can't submit themselves pre-'approved';
-    // selfie is a Storage download URL, capped to block oversized payloads.
+    // status is forced to 'pending'. A rejected (or still-pending) submission can be
+    // replaced with a new selfie; approval is admin-only.
     match /verifications/{uid} {
       allow read: if false;
       allow create: if isUser(uid) && keysOnly(['uid','selfie','status','createdAt'])
-        && request.resource.data.status == 'pending' && strMax('selfie', 2000);
-      allow update, delete: if false;
+        && request.resource.data.status == 'pending' && imgUrl(request.resource.data.selfie);
+      allow update: if isUser(uid) && resource.data.status in ['pending', 'rejected']
+        && keysOnly(['uid','selfie','status','createdAt'])
+        && request.resource.data.status == 'pending' && imgUrl(request.resource.data.selfie);
+      allow delete: if false;
     }
 
     // Trip safety plans — readable by the owner and invited partners.
@@ -229,11 +379,20 @@ service cloud.firestore {
         return request.resource.data.get('shareMedical', false) == true
             || request.resource.data.get('medical', null) == null;
       }
+      function validTrip() {
+        return keysOnly(['ownerId','ownerName','objective','activity','area','startAt','expectedReturnAt','partners','partnerNames','emergencyContact','shareMedical','medical','lastKnownLocation','status','checkedInAt','escalatedAt','graceMins','adventureCredited','createdAt'])
+          && reqStr('objective', 1, 200) && optStr('area', 500) && optStr('activity', 80) && optStr('ownerName', 40)
+          && optList('partners', 10) && optList('partnerNames', 10) && optMap('emergencyContact', 6) && optMap('medical', 10) && optBool('shareMedical')
+          && optMap('lastKnownLocation', 4) && optNum('graceMins', 0, 1440)
+          && (!has('status') || d().status in ['planned', 'active', 'safe', 'overdue', 'cancelled'])
+          && medicalOk();
+      }
       allow read: if signedIn() && (owns('ownerId') || (request.auth.uid in resource.data.partners));
-      allow create: if signedIn() && created('ownerId')
-        && keysOnly(['ownerId','ownerName','objective','activity','area','startAt','expectedReturnAt','partners','emergencyContact','shareMedical','medical','lastKnownLocation','status','checkedInAt','escalatedAt','graceMins','createdAt'])
-        && strMax('objective', 200) && strMax('area', 500) && medicalOk();
-      allow update: if owns('ownerId') && unchanged(['ownerId','createdAt']) && medicalOk();
+      allow create: if signedIn() && created('ownerId') && validTrip()
+        && request.resource.data.get('adventureCredited', false) == false;
+      // adventureCredited is set by the server once, so cycling status safe→active→safe
+      // can no longer inflate adventuresCompleted.
+      allow update: if owns('ownerId') && unchanged(['ownerId','createdAt','adventureCredited','escalatedAt']) && validTrip();
       allow delete: if owns('ownerId');
     }
 
