@@ -23,6 +23,18 @@ export default {
         nav: "0 -2px 16px -6px rgba(0,0,0,0.25)",
       },
       maxWidth: { phone: "430px" },
+      // Auth-screen motion: slow photo push-in, drifting mist, staggered entrance.
+      keyframes: {
+        "hero-zoom": { from: { transform: "scale(1.12)" }, to: { transform: "scale(1)" } },
+        "mist-drift": { from: { transform: "translateX(-12%)" }, to: { transform: "translateX(12%)" } },
+        rise: { from: { opacity: "0", transform: "translateY(14px)" }, to: { opacity: "1", transform: "none" } },
+      },
+      animation: {
+        "hero-zoom": "hero-zoom 18s ease-out both",
+        "mist-slow": "mist-drift 38s ease-in-out infinite alternate",
+        "mist-fast": "mist-drift 24s ease-in-out infinite alternate-reverse",
+        rise: "rise 0.9s cubic-bezier(0.2,0.7,0.2,1) both",
+      },
     },
   },
   plugins: [],

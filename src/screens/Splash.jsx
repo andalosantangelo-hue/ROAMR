@@ -20,16 +20,16 @@ export default function Splash() {
         <div className="relative flex-1 flex flex-col items-center justify-center px-6 pb-16">
           {/* soft dark halo so the brand stays legible over bright sky */}
           <div aria-hidden="true" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[58%] w-[130%] aspect-square rounded-full bg-[radial-gradient(closest-side,rgba(10,22,32,0.62),rgba(10,22,32,0.28)_55%,transparent)]" />
-          <div className="relative rounded-[30%] shadow-[0_0_60px_-6px_rgba(125,173,63,0.55)] ring-1 ring-white/15">
+          <div className="relative rounded-[30%] shadow-[0_0_60px_-6px_rgba(125,173,63,0.55)] ring-1 ring-white/15 motion-safe:animate-rise">
             <Logo size={84} showWord={false} />
           </div>
-          <h1 className="relative mt-5 text-[40px] leading-none font-extrabold tracking-tight [text-shadow:0_2px_16px_rgba(0,0,0,0.55)]">ROAMR</h1>
-          <p className="relative mt-3 text-white/90 text-[15px] font-medium [text-shadow:0_1px_10px_rgba(0,0,0,0.7)]">
+          <h1 className="relative mt-5 motion-safe:animate-rise [animation-delay:150ms] text-[40px] leading-none font-extrabold tracking-tight [text-shadow:0_2px_16px_rgba(0,0,0,0.55)]">ROAMR</h1>
+          <p className="relative mt-3 motion-safe:animate-rise [animation-delay:300ms] text-white/90 text-[15px] font-medium [text-shadow:0_1px_10px_rgba(0,0,0,0.7)]">
             Find your tribe. <span className="text-brand-greenBright font-semibold">Get outside.</span>
           </p>
         </div>
 
-        <div className="px-6 pb-8 space-y-3">
+        <div className="px-6 pb-8 space-y-3 motion-safe:animate-rise [animation-delay:550ms]">
           <SocialButtons busy={busy} setBusy={setBusy} onError={setError} />
           <button onClick={() => nav("/login?mode=signup")} disabled={!!busy} className={PILL_GREEN}>
             Sign up with email
