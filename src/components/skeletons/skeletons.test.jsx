@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { SkeletonRegion, PostCardSkeleton } from "./index.js";
 import ChatThread from "../ChatThread.jsx";
 import Home from "../../screens/Home.jsx";
@@ -10,7 +11,7 @@ vi.mock("../../store/PostsContext.jsx", () => ({ usePosts: vi.fn() }));
 vi.mock("../../store/AuthContext.jsx", () => ({
   useAuth: () => ({ user: { uid: "me" }, profile: {}, followingIds: new Set(["a", "b", "c", "d", "e"]) }),
 }));
-vi.mock("../../store/FeedScopeContext.jsx", () => ({ useFeedScope: () => ({ scope: "foryou" }) }));
+vi.mock("../../store/FeedScopeContext.jsx", () => ({ useFeedScope: () => ({ scope: "foryou", setScope: () => {} }) }));
 vi.mock("../Discover.jsx", () => ({ default: () => null }));
 vi.mock("../PostCard.jsx", () => ({ default: ({ post }) => <article>{post.title}</article> }));
 
@@ -44,9 +45,12 @@ describe("Home feed", () => {
 
   it("shows the empty state (not a skeleton) when loaded with zero posts", () => {
     vi.mocked(usePosts).mockReturnValue({ posts: [], loading: false });
-    render(<Home />);
+    render(<MemoryRouter><Home /></MemoryRouter>);
     expect(screen.getByText(/your feed's quiet/i)).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // An empty feed gives a next step, not a dead end.
+    expect(screen.getByRole("button", { name: "Share an adventure" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find a tribe" })).toBeInTheDocument();
   });
 });
 

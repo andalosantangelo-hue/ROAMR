@@ -7,6 +7,8 @@ import { useTribes } from "../store/TribesContext.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
 import { applyScope, feedCtx } from "../lib/feed.js";
+import EmptyState from "../components/EmptyState.jsx";
+import { Tribes as TribesIcon, Search as SearchIcon } from "../components/Icons.jsx";
 
 const CAT_SECTION = [{
   key: "cat", title: "Activity",
@@ -17,14 +19,14 @@ const CAT_SECTION = [{
 }];
 
 const SCOPE_EMPTY = {
-  following: "No tribes from people you follow yet.",
-  nearby: "No tribes near your home base yet.",
+  following: { title: "No tribes from people you follow", body: "Follow more explorers, or browse every tribe." },
+  nearby: { title: "No tribes near you yet", body: "Start one for your area and invite the people you ride, climb or paddle with." },
 };
 
 export default function Tribes() {
   const { tribes, loading } = useTribes();
   const { user, profile, followingIds } = useAuth();
-  const { scope } = useFeedScope();
+  const { scope, setScope } = useFeedScope();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState({ location: "", cat: null });
   const [sheet, setSheet] = useState(false);
@@ -49,9 +51,18 @@ export default function Tribes() {
             {[0, 1, 2, 3, 4].map((i) => <TribeCardSkeleton key={i} />)}
           </SkeletonRegion>
         ) : filtered.length === 0 ? (
-          <p className="text-center text-muted text-sm mt-12">
-            {(q || active) ? "No tribes match your filters." : (SCOPE_EMPTY[scope] || "No tribes yet.")}
-          </p>
+          (q || active)
+            ? <EmptyState Icon={SearchIcon} className="mt-12" title="No matches"
+                body="Try a different search or clear your filters."
+                actions={[{ label: "Clear filters", onClick: () => { setQ(""); setFilter({ location: "", cat: null }); } }]} />
+            : SCOPE_EMPTY[scope]
+              ? <EmptyState Icon={TribesIcon} className="mt-12" {...SCOPE_EMPTY[scope]}
+                  actions={scope === "following"
+                    ? [{ label: "Show all tribes", onClick: () => setScope("foryou") }]
+                    : [{ label: "Start a tribe", to: "/create-tribe" }, { label: "Show all tribes", onClick: () => setScope("foryou") }]} />
+              : <EmptyState Icon={TribesIcon} className="mt-12" title="No tribes yet"
+                  body="Start the first one: a crew for your sport, your spot or your skill level."
+                  actions={[{ label: "Start a tribe", to: "/create-tribe" }]} />
         ) : filtered.map((t) => <TribeCard key={t.id} tribe={t} />)}
       </div>
 
