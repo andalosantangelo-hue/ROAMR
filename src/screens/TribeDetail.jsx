@@ -24,24 +24,18 @@ export default function TribeDetail() {
   const [messages, setMessages] = useState(null); // null until the first chat snapshot
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
+  const joined = joinedIds.has(id);
   // The chat opens only once the SERVER has recorded the membership. "Joined" flips
   // instantly on tap, and subscribing then was denied by the rules (membership not
   // written yet) and never retried, so messages never appeared after joining.
   const [memberConfirmed, setMemberConfirmed] = useState(false);
-  // This tribe's own membership doc (including a pending local write) decides "joined".
-  // The app-wide joinedIds list comes from a collection-group listener that can briefly
-  // deliver a server result without a membership written seconds earlier; going by that
-  // alone flipped the page back to "Join" and unmounted the chat mid-send.
-  const [memberDoc, setMemberDoc] = useState(null); // null = unknown yet, then true/false
   const uid = user?.uid;
   useEffect(() => {
     if (!uid) return;
-    setMemberDoc(null);
     return onSnapshot(doc(db, "tribes", id, "members", uid), { includeMetadataChanges: true },
-      (s) => { setMemberDoc(s.exists()); setMemberConfirmed(s.exists() && !s.metadata.hasPendingWrites); },
-      () => { setMemberDoc(null); setMemberConfirmed(false); });
+      (s) => setMemberConfirmed(s.exists() && !s.metadata.hasPendingWrites),
+      () => setMemberConfirmed(false));
   }, [id, uid]);
-  const joined = memberDoc ?? joinedIds.has(id);
 
   useEffect(() => {
     const local = tribes.find((t) => t.id === id);
@@ -121,7 +115,7 @@ export default function TribeDetail() {
             <h2 className="text-xl font-extrabold text-brand-navy leading-tight">{tribe?.name}</h2>
             <p className="text-muted text-[13px]">{count} {count === 1 ? "Member" : "Members"}{tribe?.location ? ` · ${tribe.location}` : ""}</p>
           </div>
-          {tribe && <JoinButton joined={joined} onToggle={() => toggleMembership(tribe, joined)} />}
+          {tribe && <JoinButton joined={joined} onToggle={() => toggleMembership(tribe)} />}
         </div>
         {cats.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
@@ -148,7 +142,7 @@ export default function TribeDetail() {
           </span>
           <h3 className="font-extrabold text-brand-navy">Join to see the group chat</h3>
           <p className="text-muted text-sm mt-1 mb-4">Members can chat, plan trips, and meet up.</p>
-          {tribe && <JoinButton joined={joined} onToggle={() => toggleMembership(tribe, joined)} />}
+          {tribe && <JoinButton joined={joined} onToggle={() => toggleMembership(tribe)} />}
         </div>
       )}
     </div>
