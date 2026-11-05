@@ -7,7 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "../lib/firebase.js";
 import { tapLight, tapSuccess } from "../lib/haptics.js";
 import { compressImage, requireOnlineForPhotos } from "../lib/image.js";
-import { toggleSet, isDemoId } from "../lib/util.js";
+import { isDemoId } from "../lib/util.js";
 import { track } from "../lib/analytics.js";
 import { useAuth } from "./AuthContext.jsx";
 import { tribes as seed } from "../data/tribes.js";
@@ -74,15 +74,18 @@ export function TribesProvider({ children }) {
 
   // Writes for any real tribe (the old in-window check skipped tribes outside the
   // newest 50, so accepting an invite to an older tribe silently did nothing).
-  const toggleMembership = async (tribe) => {
+  // `isJoined` lets a screen that watches the membership doc directly (TribeDetail)
+  // pass its answer, so a stale joinedIds can't turn "Leave" into a second "Join".
+  const toggleMembership = async (tribe, isJoined) => {
     if (!user) return;
     const id = tribe.id;
-    const wasJoined = joinedIds.has(id);
+    const wasJoined = typeof isJoined === "boolean" ? isJoined : joinedIds.has(id);
     // The owner can't "leave" their own tribe — that locked them out of its chat.
     if (wasJoined && tribe.ownerId === user.uid) return;
     if (pending.current.has(id)) return;
     tapLight();
-    setJoinedIds((prev) => toggleSet(prev, id));
+    const setJoined = (on) => setJoinedIds((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
+    setJoined(!wasJoined);
     if (isDemoId(id)) return;
     pending.current.add(id);
     try {
@@ -97,7 +100,7 @@ export function TribesProvider({ children }) {
         track("tribe_join");
       }
     } catch (e) {
-      setJoinedIds((prev) => toggleSet(prev, id));
+      setJoined(wasJoined);
       console.warn("membership:", e.message);
     } finally { pending.current.delete(id); }
   };
