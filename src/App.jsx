@@ -37,6 +37,7 @@ import TripPlanForm from "./screens/TripPlanForm.jsx";
 import TripPlans from "./screens/TripPlans.jsx";
 import LeaveReview from "./screens/LeaveReview.jsx";
 import Legal from "./screens/Legal.jsx";
+import Welcome from "./screens/Welcome.jsx";
 import { TribesProvider } from "./store/TribesContext.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { PostsProvider } from "./store/PostsContext.jsx";
@@ -57,6 +58,10 @@ export default function App() {
     <ListingsProvider>
     <MessagesProvider>
     <SafetyProvider>
+    <Routes>
+      {/* Public marketing page: full-width, so it sits outside the phone canvas. */}
+      <Route path="/welcome" element={<Welcome />} />
+      <Route path="*" element={
     <PhoneFrame>
       <OfflineBanner />
       <ConsentBanner />
@@ -103,6 +108,8 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PhoneFrame>
+      } />
+    </Routes>
     </SafetyProvider>
     </MessagesProvider>
     </ListingsProvider>

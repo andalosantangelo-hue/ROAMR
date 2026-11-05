@@ -5,21 +5,28 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
 import { applyScope, feedCtx } from "../lib/feed.js";
 import Discover from "../components/Discover.jsx";
+import EmptyState from "../components/EmptyState.jsx";
+import { Home as HomeIcon, Tribes as TribesIcon, Activities as CompassIcon } from "../components/Icons.jsx";
 
 const EMPTY = {
-  following: { title: "Your following feed is quiet", body: "Follow explorers to see their adventures here." },
-  nearby: { title: "Nothing nearby yet", body: "Set your home base in your profile, or be the first to post here." },
-  foryou: { title: "Your feed's quiet", body: "Tap + to post your first adventure." },
+  following: { Icon: TribesIcon, title: "Your following feed is quiet", body: "Follow explorers below to see their adventures here." },
+  nearby: { Icon: CompassIcon, title: "Nothing nearby yet", body: "Set your home base so we can show posts near you, or be the first to post here." },
+  foryou: { Icon: HomeIcon, title: "Your feed's quiet", body: "Share your first adventure, or join a tribe to fill it up." },
 };
 
 export default function Home() {
   const { posts, loading } = usePosts();
   const { user, profile, followingIds } = useAuth();
-  const { scope } = useFeedScope();
+  const { scope, setScope } = useFeedScope();
 
   const ctx = feedCtx(profile, followingIds, user?.uid);
   const visible = applyScope(posts, scope, ctx);
   const empty = EMPTY[scope] || EMPTY.foryou;
+  const emptyActions = scope === "following"
+    ? [{ label: "Show everything", onClick: () => setScope("foryou") }]
+    : scope === "nearby"
+      ? [{ label: "Set home base", to: "/edit-profile" }, { label: "Post the first one", to: "/create-post" }]
+      : [{ label: "Share an adventure", to: "/create-post" }, { label: "Find a tribe", to: "/app/tribes" }];
   // Surface Discover when the personalized/nearby feed is thin on follows.
   const showDiscover = scope !== "following" && followingIds.size < 5 && visible.length > 0;
 
@@ -33,10 +40,7 @@ export default function Home() {
         </SkeletonRegion>
       ) : visible.length === 0 ? (
         <div className="pt-6">
-          <div className="text-center text-muted px-8 mb-5">
-            <p className="font-semibold text-brand-navy text-lg mb-1">{empty.title}</p>
-            <p className="text-sm">{empty.body}</p>
-          </div>
+          <EmptyState Icon={empty.Icon} title={empty.title} body={empty.body} actions={emptyActions} className="mb-6" />
           {scope !== "foryou" && <Discover />}
         </div>
       ) : (

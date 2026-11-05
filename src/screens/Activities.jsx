@@ -8,6 +8,8 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useFeedScope } from "../store/FeedScopeContext.jsx";
 import { applyScope, feedCtx, cityToken } from "../lib/feed.js";
 import { milesBetween } from "../lib/geo.js";
+import EmptyState from "../components/EmptyState.jsx";
+import { Activities as CompassIcon, Search as SearchIcon } from "../components/Icons.jsx";
 
 const ActivitiesMap = lazy(() => import("../components/ActivitiesMap.jsx"));
 
@@ -17,8 +19,8 @@ const SKILL_SECTION = [{
 }];
 
 const SCOPE_EMPTY = {
-  following: "No activities from people you follow yet.",
-  nearby: "No activities near your home base yet.",
+  following: { title: "No plans from people you follow", body: "Follow more explorers, or browse every activity." },
+  nearby: { title: "Nothing planned near you yet", body: "Be the first: propose an adventure and locals can join." },
 };
 
 function ListIcon({ className }) {
@@ -39,7 +41,7 @@ function MapIcon({ className }) {
 export default function Activities() {
   const { activities, loading } = useActivities();
   const { user, profile, followingIds } = useAuth();
-  const { scope } = useFeedScope();
+  const { scope, setScope } = useFeedScope();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState({ place: null, radius: null, skill: null });
   const [sheet, setSheet] = useState(false);
@@ -62,9 +64,19 @@ export default function Activities() {
     });
   }, [activities, scope, profile, followingIds, user?.uid, s, filter]);
 
-  const empty = (q || active) ? <p className="text-center text-muted text-sm mt-12">No activities match your filters.</p>
-    : SCOPE_EMPTY[scope] ? <p className="text-center text-muted text-sm mt-12">{SCOPE_EMPTY[scope]}</p>
-      : <div className="text-center text-muted mt-16 px-8"><p className="font-semibold text-brand-navy text-lg mb-1">Nothing planned</p><p className="text-sm">Tap + to propose an adventure.</p></div>;
+  const clearFilters = () => { setQ(""); setFilter({ place: null, radius: null, skill: null }); };
+  const empty = (q || active)
+    ? <EmptyState Icon={SearchIcon} className="mt-12" title="No matches"
+        body={filter.radius ? "Try a wider radius or clear your filters." : "Try a different search or clear your filters."}
+        actions={[{ label: "Clear filters", onClick: clearFilters }]} />
+    : SCOPE_EMPTY[scope]
+      ? <EmptyState Icon={CompassIcon} className="mt-12" {...SCOPE_EMPTY[scope]}
+          actions={scope === "following"
+            ? [{ label: "Show all activities", onClick: () => setScope("foryou") }]
+            : [{ label: "Propose an adventure", to: "/create-activity" }, { label: "Show all activities", onClick: () => setScope("foryou") }]} />
+      : <EmptyState Icon={CompassIcon} className="mt-12" title="Nothing planned yet"
+          body="Propose a hike, paddle or ride and let people near you join."
+          actions={[{ label: "Propose an adventure", to: "/create-activity" }]} />;
 
   return (
     <div className="px-4 pt-1 pb-6">

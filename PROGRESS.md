@@ -1,7 +1,7 @@
 # ROAMR — Progress / session handoff
 
 Keep this short. Overwrite stale sections instead of appending history (git log has history).
-Last updated: 2026-10-29. `main` (#62–#65, #84) was deployed to roamr-55afb on 2026-10-28 (rules, indexes, storage, 28 functions incl. `shopCatalog`, hosting). **#66 (beta hardening) is open and merged up with `main`; it needs its own deploy (below) — before 2026-10-30, see URGENT.**
+Last updated: 2026-11-05. **#66 is live** on roamr-55afb (Deploy runs #4 backend + #5 hosting, 2026-11-05): rules, indexes, storage, 27/28 functions on Node 22 (incl. new `deleteAccount`), hosting. Exception: `checkOverdueTrips` didn't update (service account lacked `cloudscheduler.jobs.update`); old version keeps running.
 
 > ⚠️ If a local session (Windows/OneDrive) has uncommitted work, push it and update this file.
 
@@ -18,8 +18,8 @@ Last updated: 2026-10-29. `main` (#62–#65, #84) was deployed to roamr-55afb on
 - In #66 (not on `main` yet): per-field type/size validation in rules, server-side account deletion (`deleteAccount` callable), idempotent counters, daily notification dedupe, beta-run bug fixes, skeleton loading, offline posting, synthetic-user e2e + rules job in CI. Post media URLs are checked by the renderer + `onPostCreate`, not rules (rules expression limit).
 
 ## Open — needs code
+- [ ] **Owner:** give the `firebase-adminsdk-…` service account **Cloud Scheduler Admin** in Cloud IAM, then Deploy → `backend` so `checkOverdueTrips` moves to Node 22. (Already granted 2026-11-05: Service Account User, Cloud Functions Admin, Firebase Admin, Cloud Datastore Owner. Secret re-created and works.)
 - [ ] **feature/tribe-chat-send (PR open):** fixes `join_tribe_and_chat` (synthetic-users CI red since #66). Cause: TribeDetail's single-doc listener on `members/{uid}` let the SDK drop a just-acknowledged membership from the local cache, so the tribe flipped back to "Join" and Send stayed disabled (server doc was fine). Membership confirmation now comes from TribesContext's one memberships query, with a "Still connecting… Retry" banner after 6s. Production (deployed 2026-11-05) has the bug until this ships — redeploy hosting after merge.
-- [ ] **URGENT:** Cloud Functions Node.js 20 runtime is decommissioned 2026-10-30 — after that, functions can't be redeployed. **#66 already moves to Node 22** (`functions/package.json` engines + `firebase.json` `nodejs22`); its `firebase-functions` 6.6.0 supports Node 22, so no SDK upgrade is needed for this. Merging + deploying #66 clears it.
 - [ ] Before real traffic (from #62): paid map tiles + geocoder instead of OSM/Photon, video transcoding (also strips GPS metadata), geohash queries for the map.
 - [ ] Move `fcmTokens`/`notificationPrefs` to private subcollection (field validation + server-side deletion are done in #66).
 - [ ] Bug list in ROAMR-BACKLOG.md is empty; run its test pass on a real device and log findings.
@@ -43,7 +43,8 @@ Last updated: 2026-10-29. `main` (#62–#65, #84) was deployed to roamr-55afb on
 5. Risk: rules now validate the *whole* doc on update. Any existing test doc with an out-of-range field (e.g. 50-char display name) can't be edited until fixed in the console. Fine pre-launch; check if real users exist.
 
 ## Next up (pick from here)
-1. Review + merge #66, then deploy it (above) — before 2026-10-30.
+1. Smoke test the live app (sign up, post photo+video, like/unlike twice → one notification, join a tribe and chat, delete a test account).
+1b. `/welcome` marketing page + actionable empty states (Home/Activities/Tribes) are in code; put roamr-55afb.web.app/welcome in bios/link-in-bio once deployed.
 2. Device test pass on the live link (posting with video, map, apparel checkout) → log bugs in ROAMR-BACKLOG.md.
 3. Close or merge the ~45 stale remote branches so sessions stop tripping over old versions.
 
