@@ -383,9 +383,42 @@ async function phase4(browser, u) {
 }
 
 // ---------- audit: compare stored data vs what users did ----------
+// Counters are maintained by Cloud Functions triggers, so they lag the writes that
+// cause them; deleteAccount in phase 4 sets off a cascade of follow/like/comment/member
+// deletes that the emulator can still be working through when the audit starts. Recount
+// until the mismatches stop changing (up to 60s): lag settles, real drift stays.
+async function counterMismatches() {
+  const out = [];
+  const fol = {}; for (const d of (await db.collectionGroup("following").get()).docs) fol[d.id] = (fol[d.id] || 0) + 1;
+  for (const u of users.filter((x) => x.uid && !x.deleted)) {
+    const d = (await db.doc(`users/${u.uid}`).get()).data() || {};
+    const followers = fol[u.uid] || 0;
+    if ((d.followerCount ?? 0) !== followers) out.push(`user u${u.i}: followerCount ${d.followerCount ?? 0} vs actual ${followers}`);
+  }
+  for (const col of ["posts", "activities"]) {
+    for (const p of (await db.collection(col).get()).docs) {
+      const x = p.data();
+      const likes = (await p.ref.collection("likes").get()).size, comments = (await p.ref.collection("comments").get()).size;
+      if ((x.likeCount ?? 0) !== likes) out.push(`${col}/${p.id}: likeCount ${x.likeCount ?? 0} vs ${likes} likes`);
+      if ((x.commentCount ?? 0) !== comments) out.push(`${col}/${p.id}: commentCount ${x.commentCount ?? 0} vs ${comments} comments`);
+      if (col === "activities") { const att = (await p.ref.collection("attendees").get()).size; if ((x.attendeeCount ?? 0) !== att) out.push(`activities/${p.id}: attendeeCount ${x.attendeeCount ?? 0} vs ${att}`); }
+    }
+  }
+  for (const t of (await db.collection("tribes").get()).docs) { const m = (await t.ref.collection("members").get()).size; if ((t.data().memberCount ?? 0) !== m) out.push(`tribes/${t.id}: memberCount ${t.data().memberCount ?? 0} vs ${m}`); }
+  return out;
+}
+async function settledCounterMismatches() {
+  const start = Date.now(); let prev = null, cur = await counterMismatches();
+  while (cur.length && Date.now() - start < 60000 && JSON.stringify(cur) !== JSON.stringify(prev)) {
+    await new Promise((r) => setTimeout(r, 5000)); prev = cur; cur = await counterMismatches();
+  }
+  console.log(`counters: ${cur.length} mismatch(es) after ${((Date.now() - start) / 1000).toFixed(0)}s of settling`);
+  return cur;
+}
+
 async function audit() {
   const A = { profile: [], counters: [], deletion: [], misc: [] };
-  const fol = {}; for (const d of (await db.collectionGroup("following").get()).docs) fol[d.id] = (fol[d.id] || 0) + 1;
+  A.counters = await settledCounterMismatches();
   for (const u of users.filter((x) => x.uid && !x.deleted)) {
     const d = (await db.doc(`users/${u.uid}`).get()).data() || {};
     const want = u.name.trim();
@@ -393,19 +426,11 @@ async function audit() {
     if (!d.photoURL && u.steps.find((s) => s.name === "edit_profile_photo_bio" && s.ok)) A.profile.push(`u${u.i}: profile saved OK but photoURL empty (file ${path.basename(u.avatar)})`);
     if (!d.bio && u.steps.find((s) => s.name === "edit_profile_photo_bio" && s.ok)) A.profile.push(`u${u.i}: bio missing after save`);
     if (!(d.interests || []).length) A.profile.push(`u${u.i}: interests empty after onboarding`);
-    const followers = fol[u.uid] || 0;
-    if (followers >= 0 && (d.followerCount ?? 0) !== followers) A.counters.push(`user u${u.i}: followerCount ${d.followerCount ?? 0} vs actual ${followers}`);
   }
-  for (const col of ["posts", "activities"]) {
-    for (const p of (await db.collection(col).get()).docs) {
-      const x = p.data();
-      const likes = (await p.ref.collection("likes").get()).size, comments = (await p.ref.collection("comments").get()).size;
-      if ((x.likeCount ?? 0) !== likes) A.counters.push(`${col}/${p.id}: likeCount ${x.likeCount ?? 0} vs ${likes} likes`);
-      if ((x.commentCount ?? 0) !== comments) A.counters.push(`${col}/${p.id}: commentCount ${x.commentCount ?? 0} vs ${comments} comments`);
-      if (col === "activities") { const att = (await p.ref.collection("attendees").get()).size; if ((x.attendeeCount ?? 0) !== att) A.counters.push(`activities/${p.id}: attendeeCount ${x.attendeeCount ?? 0} vs ${att}`); if (x.when && new Date(x.when?.toDate?.() ?? x.when) < new Date()) A.misc.push(`activities/${p.id}: scheduled in the past (${x.when?.toDate?.() ?? x.when}) and accepted`); }
-    }
+  for (const p of (await db.collection("activities").get()).docs) {
+    const x = p.data();
+    if (x.when && new Date(x.when?.toDate?.() ?? x.when) < new Date()) A.misc.push(`activities/${p.id}: scheduled in the past (${x.when?.toDate?.() ?? x.when}) and accepted`);
   }
-  for (const t of (await db.collection("tribes").get()).docs) { const m = (await t.ref.collection("members").get()).size; if ((t.data().memberCount ?? 0) !== m) A.counters.push(`tribes/${t.id}: memberCount ${t.data().memberCount ?? 0} vs ${m}`); }
   for (const u of users.filter((x) => x.deleted)) {
     const left = [];
     if ((await db.doc(`users/${u.uid}`).get()).exists) left.push("users doc");
