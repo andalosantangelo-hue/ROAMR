@@ -67,14 +67,6 @@ const uiErr = async (u, page, where) => { const t = (await page.locator(".text-r
 // LocationField's suggestion list stays open after typing and covers the fields below;
 // tapping outside it (the page title) closes it, as a person would.
 const closePlaces = (page, title) => page.getByRole("heading", { name: title }).click();
-// Serialises work per key; see join_tribe_and_chat.
-const tribeLocks = new Map();
-function tribeLock(key, fn) {
-  const prev = tribeLocks.get(key) || Promise.resolve();
-  const run = prev.catch(() => {}).then(fn);
-  tribeLocks.set(key, run.catch(() => {}));
-  return run;
-}
 async function pool(items, n, fn) { let k = 0; await Promise.all(Array.from({ length: n }, async () => { while (k < items.length) { const it = items[k++]; await fn(it); } })); }
 const future = (d) => { const x = new Date(Date.now() + d * 864e5); x.setMinutes(0); return x.toISOString().slice(0, 16); };
 
@@ -318,26 +310,17 @@ async function phase2(browser, u, ids) {
       await join.first().click();
       await page.waitForTimeout(800);
     });
-    if (ids.tribes.length) await step(u, page, "join_tribe_and_chat", () => {
-      const tid = ids.tribes[u.i % ids.tribes.length];
-      // One join at a time per tribe (users still run 4 in parallel across tribes).
-      // Firestore emulator bug: when two users join the same tribe at the same instant,
-      // its listen stream can report one user's new members/{uid} doc as missing for good
-      // (admin reads and REST GETs with the user's token return it; reloading the page
-      // doesn't help), so the page shows "Join" again. ~1/3 of users on emulator 1.21.0,
-      // 2/30 on 1.22.0. Never seen against production.
-      return tribeLock(tid, async () => {
-        await spaGo(page, `/tribe/${tid}`);
-        const join = page.getByRole("button", { name: "Join", exact: true }).first();
-        const box = page.getByPlaceholder("Message the tribe…");
-        // Wait for the page to settle into either state; checking immediately caught the
-        // loading skeleton, skipped Join, and then waited for a composer that never came.
-        await join.or(box).first().waitFor({ timeout: 15000 });
-        if (await join.isVisible()) await join.click();
-        await box.fill(`Hi tribe, tester ${u.i} here!`);
-        await page.getByRole("button", { name: "Send" }).click();
-        await page.getByText(`tester ${u.i} here`).first().waitFor({ timeout: 8000 });
-      });
+    if (ids.tribes.length) await step(u, page, "join_tribe_and_chat", async () => {
+      await spaGo(page, `/tribe/${ids.tribes[u.i % ids.tribes.length]}`);
+      const join = page.getByRole("button", { name: "Join", exact: true }).first();
+      const box = page.getByPlaceholder("Message the tribe…");
+      // Wait for the page to settle into either state; checking immediately caught the
+      // loading skeleton, skipped Join, and then waited for a composer that never came.
+      await join.or(box).first().waitFor({ timeout: 15000 });
+      if (await join.isVisible()) await join.click();
+      await box.fill(`Hi tribe, tester ${u.i} here!`);
+      await page.getByRole("button", { name: "Send" }).click();
+      await page.getByText(`tester ${u.i} here`).first().waitFor({ timeout: 8000 });
     });
     if (u.i % 3 === 1) await step(u, page, "leave_review", async () => {
       await spaGo(page, `/review/${target}`);
