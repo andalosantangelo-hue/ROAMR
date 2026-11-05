@@ -311,16 +311,35 @@ async function phase2(browser, u, ids) {
       await page.waitForTimeout(800);
     });
     if (ids.tribes.length) await step(u, page, "join_tribe_and_chat", async () => {
-      await spaGo(page, `/tribe/${ids.tribes[u.i % ids.tribes.length]}`);
+      const tid = ids.tribes[u.i % ids.tribes.length];
+      await spaGo(page, `/tribe/${tid}`);
       const join = page.getByRole("button", { name: "Join", exact: true }).first();
       const box = page.getByPlaceholder("Message the tribe…");
       // Wait for the page to settle into either state; checking immediately caught the
       // loading skeleton, skipped Join, and then waited for a composer that never came.
       await join.or(box).first().waitFor({ timeout: 15000 });
       if (await join.isVisible()) await join.click();
-      await box.fill(`Hi tribe, tester ${u.i} here!`);
-      await page.getByRole("button", { name: "Send" }).click();
-      await page.getByText(`tester ${u.i} here`).first().waitFor({ timeout: 8000 });
+      const send = async () => {
+        await box.fill(`Hi tribe, tester ${u.i} here!`);
+        await page.getByRole("button", { name: "Send" }).click();
+        await page.getByText(`tester ${u.i} here`).first().waitFor({ timeout: 8000 });
+      };
+      try { await send(); }
+      catch (e) {
+        // Firestore emulator quirk: when several users join the same tribe at once, its
+        // listen stream can report this user's just-written members/{uid} doc as missing
+        // although it exists (admin reads and REST GETs with the user's own token return
+        // it). The page then shows "Join" again. Seen at ~1/3 of users on emulator 1.21.0,
+        // rarer on 1.22.0; never seen against production. Only when the server really has
+        // the membership do we reload once and retry; a missing doc is a real failure.
+        const m = await db.doc(`tribes/${tid}/members/${u.uid}`).get();
+        if (!m.exists) throw e;
+        console.log(`  note: u${u.i} emulator listen glitch on tribe ${tid}; reloading once`);
+        u.emulatorGlitches = (u.emulatorGlitches || 0) + 1;
+        await page.reload();
+        await box.waitFor({ timeout: 15000 });
+        await send();
+      }
     });
     if (u.i % 3 === 1) await step(u, page, "leave_review", async () => {
       await spaGo(page, `/review/${target}`);
