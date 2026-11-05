@@ -7,6 +7,25 @@ export function toggleSet(set, id) {
   return next;
 }
 
+// Tribe memberships from the user's `members` collection-group snapshot.
+// joined: tribes to show as joined (in-flight taps override the snapshot so the button
+// doesn't flicker before the local write lands). confirmed: memberships the server has
+// recorded (no pending local write), which is what the chat rules check.
+// docs: [{ tribeId, pending }]; inflight: Map tribeId -> "join" | "leave".
+export function membershipState(docs, inflight = new Map()) {
+  const joined = new Set(), confirmed = new Set();
+  for (const { tribeId, pending } of docs) {
+    if (!tribeId) continue;
+    joined.add(tribeId);
+    if (!pending) confirmed.add(tribeId);
+  }
+  for (const [id, op] of inflight) {
+    if (op === "join") joined.add(id);
+    else { joined.delete(id); confirmed.delete(id); }
+  }
+  return { joined, confirmed };
+}
+
 // Two-letter initials for avatar fallbacks.
 export function initials(name = "") {
   return name.trim().split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
