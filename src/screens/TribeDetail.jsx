@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, limitToLast, serverTimestamp,
+  collection, doc, getDoc, getDocFromServer, addDoc, onSnapshot, query, orderBy, limitToLast, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase.js";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -28,18 +28,35 @@ export default function TribeDetail() {
   // instantly on tap, and subscribing then was denied by the rules (membership not
   // written yet) and never retried, so messages never appeared after joining.
   const [memberConfirmed, setMemberConfirmed] = useState(false);
-  // This tribe's own membership doc (including a pending local write) decides "joined".
-  // The app-wide joinedIds list comes from a collection-group listener that can briefly
-  // deliver a server result without a membership written seconds earlier; going by that
-  // alone flipped the page back to "Join" and unmounted the chat mid-send.
+  // This tribe's own membership doc decides "joined" (the app-wide joinedIds list is
+  // only a fallback until the first snapshot).
   const [memberDoc, setMemberDoc] = useState(null); // null = unknown yet, then true/false
   const uid = user?.uid;
   useEffect(() => {
     if (!uid) return;
     setMemberDoc(null);
-    return onSnapshot(doc(db, "tribes", id, "members", uid), { includeMetadataChanges: true },
-      (s) => { setMemberDoc(s.exists()); setMemberConfirmed(s.exists() && !s.metadata.hasPendingWrites); },
-      () => { setMemberDoc(null); setMemberConfirmed(false); });
+    const ref = doc(db, "tribes", id, "members", uid);
+    let alive = true, had = false, check = 0;
+    const apply = (exists, confirmed) => { if (!alive) return; had = exists; setMemberDoc(exists); setMemberConfirmed(confirmed); };
+    const unsub = onSnapshot(ref, { includeMetadataChanges: true },
+      (s) => {
+        if (s.exists()) { check++; apply(true, !s.metadata.hasPendingWrites); return; }
+        // A server snapshot saying a membership we just had is gone, with no local delete
+        // pending, has been seen right after joining while others joined the same tribe
+        // (the doc was still on the server). Ask the server once before believing it, so
+        // the page doesn't flip back to "Join" and drop the chat mid-send. A real leave
+        // is a local delete, which arrives with hasPendingWrites and skips this.
+        if (had && !s.metadata.fromCache && !s.metadata.hasPendingWrites) {
+          const mine = ++check;
+          getDocFromServer(ref)
+            .then((d) => { if (mine === check) apply(d.exists(), d.exists()); })
+            .catch(() => { if (mine === check) apply(false, false); });
+          return;
+        }
+        check++; apply(false, false);
+      },
+      () => { if (alive) { setMemberDoc(null); setMemberConfirmed(false); } });
+    return () => { alive = false; unsub(); };
   }, [id, uid]);
   const joined = memberDoc ?? joinedIds.has(id);
 
