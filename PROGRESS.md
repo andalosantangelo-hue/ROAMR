@@ -1,7 +1,7 @@
 # ROAMR — Progress / session handoff
 
 Keep this short. Overwrite stale sections instead of appending history (git log has history).
-Last updated: 2026-11-05. **#66 is live** on roamr-55afb (Deploy runs #4 backend + #5 hosting, 2026-11-05): rules, indexes, storage, 27/28 functions on Node 22 (incl. new `deleteAccount`), hosting. Exception: `checkOverdueTrips` didn't update (service account lacked `cloudscheduler.jobs.update`); old version keeps running.
+Last updated: 2026-11-08. Live on roamr-55afb: everything through #66 + #88 (`/welcome`, empty states); all 28 functions on Node 22; Deploy workflow works (service-account secret + IAM roles fixed 2026-11-05). CI: #90 bumped firebase-tools to 15.35 (Firestore emulator 1.22.0, fixes the tribe-chat e2e failure); #91 (counter audit waits for triggers to settle) pending merge.
 
 > ⚠️ If a local session (Windows/OneDrive) has uncommitted work, push it and update this file.
 
@@ -14,12 +14,11 @@ Last updated: 2026-11-05. **#66 is live** on roamr-55afb (Deploy runs #4 backend
 - Trust & security: report/block (enforced in feeds, DMs, group chat), hardened Firestore/Storage rules, PII in private subcollection, server-side counters + rate limits, CSP/security headers, consent banner, account deletion.
 - Help Center, on-device Help Bot, Guides, About, in-app legal pages (`/legal/:doc`).
 - Alpha edits (#62): email-verify card in Notifications + Profile row; single location field with GPS/recents/Photon search, activities store `{lat,lng}`; Activities List/Map (Leaflet) + 10–100 mi radius; notifications show actor name/photo + follow back; ROAMR Apparel reads live Shopify catalog via `shopCatalog` function (snapshot fallback) with bag + cart-permalink checkout; rich posts (2,200-char story, up to 10 media: 4K photo, 360°, video ≤5 min, audio, resumable uploads); fix for empty feeds after login.
+- Verified Guides (this branch): `/guide/apply` application (private `guideApplications/{uid}`, always submitted as pending), admin approves in the console → `onGuideApplicationWrite` sets the public `users/{uid}.guide` badge + notifies. How to review: `docs/GUIDE-APPROVALS.md`.
 - Tests (vitest + rules tests) and CI (lint, test, coverage gate, build, audit, gitleaks).
-- In #66 (not on `main` yet): per-field type/size validation in rules, server-side account deletion (`deleteAccount` callable), idempotent counters, daily notification dedupe, beta-run bug fixes, skeleton loading, offline posting, synthetic-user e2e + rules job in CI. Post media URLs are checked by the renderer + `onPostCreate`, not rules (rules expression limit).
+- #66: per-field type/size validation in rules, server-side account deletion (`deleteAccount` callable), idempotent counters, daily notification dedupe, beta-run bug fixes, skeleton loading, offline posting, synthetic-user e2e + rules job in CI. Post media URLs are checked by the renderer + `onPostCreate`, not rules (rules expression limit).
 
 ## Open — needs code
-- [ ] **Owner:** give the `firebase-adminsdk-…` service account **Cloud Scheduler Admin** in Cloud IAM, then Deploy → `backend` so `checkOverdueTrips` moves to Node 22. (Already granted 2026-11-05: Service Account User, Cloud Functions Admin, Firebase Admin, Cloud Datastore Owner. Secret re-created and works.)
-- [ ] CI `synthetic-users` red on `main` since #66: `join_tribe_and_chat` — Send stays disabled >15s after Join for a share of users (`TribeDetail` memberConfirmed gate). Check whether real users can get stuck; fix in app, not the test.
 - [ ] Before real traffic (from #62): paid map tiles + geocoder instead of OSM/Photon, video transcoding (also strips GPS metadata), geohash queries for the map.
 - [ ] Move `fcmTokens`/`notificationPrefs` to private subcollection (field validation + server-side deletion are done in #66).
 - [ ] Bug list in ROAMR-BACKLOG.md is empty; run its test pass on a real device and log findings.
@@ -34,19 +33,12 @@ Last updated: 2026-11-05. **#66 is live** on roamr-55afb (Deploy runs #4 backend
 - [ ] App Store / Play: Info.plist usage strings, icon via `@capacitor/assets`, privacy labels
 - [ ] Confirm Premium is display-only at launch (no payment processor)
 
-## Deploying #66 (its own deploy — do it right after merging)
-1. Merge #66. Actions → **Deploy** → `all`. Backend (rules, indexes, storage, functions) goes before hosting on purpose: the new client calls `deleteAccount` and writes fields only the new rules accept.
-2. Check the run's **Firestore TTL policies** step. It's allowed to fail (service account may lack `roles/datastore.owner`); if it did, run once:
-   `gcloud firestore fields ttls update expireAt --collection-group=processedEvents --enable-ttl --project=roamr-55afb` and the same for `notifDedupe`. Without TTL nothing breaks; those collections just grow.
-3. Functions runtime moves Node 20 → 22 (`functions/package.json`). If deploy refuses, that's the cause.
-4. Smoke test on https://roamr-55afb.web.app: sign up, post with photo + video, like/unlike twice (one notification only), delete a test account (Settings → Delete).
-5. Risk: rules now validate the *whole* doc on update. Any existing test doc with an out-of-range field (e.g. 50-char display name) can't be edited until fixed in the console. Fine pre-launch; check if real users exist.
-
 ## Next up (pick from here)
-1. Smoke test the live app (sign up, post photo+video, like/unlike twice → one notification, join a tribe and chat, delete a test account).
-1b. `/welcome` marketing page + actionable empty states (Home/Activities/Tribes) are in code; put roamr-55afb.web.app/welcome in bios/link-in-bio once deployed.
-2. Device test pass on the live link (posting with video, map, apparel checkout) → log bugs in ROAMR-BACKLOG.md.
-3. Close or merge the ~45 stale remote branches so sessions stop tripping over old versions.
+1. **Guides (business priority):** recruit 3 independent guides (start with fly fishing). Run their first trips by hand: they set the price, take payment via a Stripe Payment Link, ROAMR keeps a small cut and pays them out; list the trip as an activity. Measure whether clients pay through ROAMR and come back.
+2. **Before ROAMR takes any cut:** one hour with a lawyer who knows outdoor recreation. Some states may treat ROAMR as booking agent/outfitter once it takes money for guided trips.
+3. Next code after Verified Guides: "paid trip" activity type for approved guides (price + "Book with <guide>" link, no in-app payments yet). In-app payments + commission (Stripe Connect) only once hand-run trips work.
+4. Tribe organizer "Pro" tools (recurring events, roles, private tribes, attendance stats) — later, a subscription; keep joining/creating tribes free. Never paywall safety features.
+5. Device test pass on the live link → log bugs in ROAMR-BACKLOG.md. Close the ~45 stale remote branches.
 
 ## Decisions worth remembering
 - Deploys: Actions → Deploy workflow (needs `FIREBASE_SERVICE_ACCOUNT` secret to be valid key JSON; first attempt failed on a bad paste) or `firebase deploy` from a logged-in machine.
