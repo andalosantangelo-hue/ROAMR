@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toggleSet, initials, isDemoId, safeText, safeReturnPath, isSafeMediaUrl } from "./util.js";
+import { toggleSet, membershipState, initials, isDemoId, safeText, safeReturnPath, isSafeMediaUrl } from "./util.js";
 
 describe("toggleSet", () => {
   it("adds an id that isn't present", () => {
@@ -88,5 +88,31 @@ describe("isSafeMediaUrl", () => {
     expect(isSafeMediaUrl("javascript:alert(1)")).toBe(false);
     expect(isSafeMediaUrl({ url: "x" })).toBe(false);
     expect(isSafeMediaUrl("https://firebasestorage.googleapis.com/" + "a".repeat(2000))).toBe(false);
+  });
+});
+
+describe("membershipState", () => {
+  const ids = (s) => [...s].sort();
+  it("joins every member doc; confirms only the server-acknowledged ones", () => {
+    const { joined, confirmed } = membershipState([{ tribeId: "a", pending: false }, { tribeId: "b", pending: true }]);
+    expect(ids(joined)).toEqual(["a", "b"]);
+    expect(ids(confirmed)).toEqual(["a"]);
+  });
+  it("keeps an in-flight join shown as joined but unconfirmed before its write lands", () => {
+    const { joined, confirmed } = membershipState([], new Map([["t", "join"]]));
+    expect(ids(joined)).toEqual(["t"]);
+    expect(ids(confirmed)).toEqual([]);
+  });
+  it("hides an in-flight leave even while the doc is still in the snapshot", () => {
+    const { joined, confirmed } = membershipState([{ tribeId: "t", pending: false }], new Map([["t", "leave"]]));
+    expect(ids(joined)).toEqual([]);
+    expect(ids(confirmed)).toEqual([]);
+  });
+  it("confirms a join once the server ack arrives, even if the tap is still in flight", () => {
+    const { confirmed } = membershipState([{ tribeId: "t", pending: false }], new Map([["t", "join"]]));
+    expect(ids(confirmed)).toEqual(["t"]);
+  });
+  it("skips docs with no parent tribe", () => {
+    expect(membershipState([{ tribeId: undefined, pending: false }]).joined.size).toBe(0);
   });
 });

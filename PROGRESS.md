@@ -19,7 +19,7 @@ Last updated: 2026-11-05. **#66 is live** on roamr-55afb (Deploy runs #4 backend
 
 ## Open — needs code
 - [ ] **Owner:** give the `firebase-adminsdk-…` service account **Cloud Scheduler Admin** in Cloud IAM, then Deploy → `backend` so `checkOverdueTrips` moves to Node 22. (Already granted 2026-11-05: Service Account User, Cloud Functions Admin, Firebase Admin, Cloud Datastore Owner. Secret re-created and works.)
-- [ ] CI `synthetic-users` red on `main` since #66: `join_tribe_and_chat` — Send stays disabled >15s after Join for a share of users (`TribeDetail` memberConfirmed gate). Check whether real users can get stuck; fix in app, not the test.
+- [ ] **feature/tribe-chat-send (PR open):** fixes `join_tribe_and_chat` (synthetic-users CI red since #66). Cause: TribeDetail's single-doc listener on `members/{uid}` let the SDK drop a just-acknowledged membership from the local cache, so the tribe flipped back to "Join" and Send stayed disabled (server doc was fine). Membership confirmation now comes from TribesContext's one memberships query, with a "Still connecting… Retry" banner after 6s. Production (deployed 2026-11-05) has the bug until this ships — redeploy hosting after merge.
 - [ ] Before real traffic (from #62): paid map tiles + geocoder instead of OSM/Photon, video transcoding (also strips GPS metadata), geohash queries for the map.
 - [ ] Move `fcmTokens`/`notificationPrefs` to private subcollection (field validation + server-side deletion are done in #66).
 - [ ] Bug list in ROAMR-BACKLOG.md is empty; run its test pass on a real device and log findings.

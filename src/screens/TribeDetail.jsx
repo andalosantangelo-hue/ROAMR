@@ -12,30 +12,45 @@ import JoinButton from "../components/JoinButton.jsx";
 import { Tribes as TribesIcon, More } from "../components/Icons.jsx";
 import { SkeletonRegion, DetailSkeleton } from "../components/skeletons";
 
+const CONFIRM_TIMEOUT_MS = 6000;
 const CAT_LABELS = { outdoor: "Outdoor", water: "Water", wheel: "Wheels", nature: "Nature", snow: "Snow" };
 
 export default function TribeDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const { user, profile, blockedIds, reportContent } = useAuth();
-  const { tribes, joinedIds, toggleMembership } = useTribes();
+  const { tribes, joinedIds, confirmedIds, toggleMembership, recheckMembership } = useTribes();
   // undefined while the doc loads (skeleton), null if it doesn't exist.
   const [tribe, setTribe] = useState(() => tribes.find((t) => t.id === id));
   const [messages, setMessages] = useState(null); // null until the first chat snapshot
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState("");
   const joined = joinedIds.has(id);
-  // The chat opens only once the SERVER has recorded the membership. "Joined" flips
-  // instantly on tap, and subscribing then was denied by the rules (membership not
-  // written yet) and never retried, so messages never appeared after joining.
-  const [memberConfirmed, setMemberConfirmed] = useState(false);
-  const uid = user?.uid;
+  // The chat opens only once the SERVER has recorded the membership ("Joined" flips
+  // instantly on tap; the chat rules would refuse until the member doc is written).
+  // Confirmation comes from TribesContext's memberships listener — see there for why
+  // this screen no longer runs its own listener on members/{uid}.
+  const memberConfirmed = confirmedIds.has(id);
+  // If confirmation hasn't arrived after a few seconds, say so and offer a retry
+  // instead of leaving a disabled Send button with no explanation.
+  const [stuck, setStuck] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   useEffect(() => {
-    if (!uid) return;
-    return onSnapshot(doc(db, "tribes", id, "members", uid), { includeMetadataChanges: true },
-      (s) => setMemberConfirmed(s.exists() && !s.metadata.hasPendingWrites),
-      () => setMemberConfirmed(false));
-  }, [id, uid]);
+    setStuck(false);
+    if (!joined || memberConfirmed) return;
+    const t = setTimeout(() => setStuck(true), CONFIRM_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [joined, memberConfirmed]);
+  const retryConnect = async () => {
+    setRetrying(true);
+    try {
+      const ok = await recheckMembership(id);
+      if (!ok) setNotice("You're not a member of this tribe yet. Tap Join to try again.");
+    } catch (e) {
+      console.warn("tribe membership recheck:", e.message);
+      setNotice("Couldn't reach ROAMR. Check your connection and try again.");
+    } finally { setRetrying(false); }
+  };
 
   useEffect(() => {
     const local = tribes.find((t) => t.id === id);
@@ -131,6 +146,15 @@ export default function TribeDetail() {
       )}
 
       {notice && <p className="text-center text-brand-green text-[13px] py-2 px-4 bg-brand-tint">{notice}</p>}
+
+      {joined && stuck && !memberConfirmed && (
+        <div role="alert" className="flex items-center gap-3 px-4 py-2 bg-brand-tint text-[13px] text-ink">
+          <span className="flex-1">Still connecting you to the group chat…</span>
+          <button onClick={retryConnect} disabled={retrying} className="font-semibold text-brand-navy underline disabled:opacity-60">
+            {retrying ? "Checking…" : "Retry"}
+          </button>
+        </div>
+      )}
 
       {joined ? (
         <ChatThread messages={shownMessages} loading={messages === null} meUid={user?.uid} onSend={send} showNames
