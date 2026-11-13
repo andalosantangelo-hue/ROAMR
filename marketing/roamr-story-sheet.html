@@ -1,0 +1,482 @@
+<title>ROAMR Story Sheet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Patrick+Hand&display=swap">
+<style>
+/* Layout: a trail journal. One narrow column of "camp stops" (sections), each a stack of simple questions with a hint line that digs deeper. */
+:root{
+  --bg:#F3F6EE;          /* pale sage paper */
+  --card:#FFFFFF;
+  --ink:#173142;         /* ROAMR navy */
+  --muted:#4F6371;
+  --line:#D5DDCB;
+  --green:#7DAD3F;       /* ROAMR green: fills only */
+  --green-ink:#3F6B17;   /* AA-safe green for text */
+  --chip:#EAF1DF;
+  --chip-on:#173142;
+  --chip-on-ink:#FFFFFF;
+  --focus:#2F7BB5;
+  --warn:#9A4B12;
+  --display:"Poppins",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Poppins",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --hand:"Patrick Hand","Comic Sans MS","Segoe Print",cursive;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F2230;--card:#173142;--ink:#EEF3E6;--muted:#B3C2CC;--line:#2C4A5E;
+  --green:#7DAD3F;--green-ink:#A8D46C;--chip:#21425A;--chip-on:#A8D46C;--chip-on-ink:#0F2230;--focus:#7FC0F0;--warn:#F2A766;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F2230;--card:#173142;--ink:#EEF3E6;--muted:#B3C2CC;--line:#2C4A5E;
+  --green:#7DAD3F;--green-ink:#A8D46C;--chip:#21425A;--chip-on:#A8D46C;--chip-on-ink:#0F2230;--focus:#7FC0F0;--warn:#F2A766;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+.wrap{max-width:720px;margin:0 auto}
+header.top{padding-block:40px 8px;display:grid;gap:12px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--green-ink)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,7vw,48px);line-height:1.05;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:0;max-width:60ch}
+.rules{display:grid;gap:6px;margin:8px 0 0;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;font-size:15px}
+.rules b{color:var(--ink)}
+.rules p{margin:0}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.track{flex:1 1 200px;height:10px;border-radius:99px;background:var(--chip);overflow:hidden;min-width:0}
+.track i{display:block;height:100%;width:0;background:var(--green);transition:width .3s}
+.count{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.status{font-size:13px;color:var(--muted);white-space:nowrap}
+.status.warn{color:var(--warn)}
+.btn{font:inherit;font-size:14px;font-weight:600;border:1.5px solid var(--ink);background:transparent;color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer}
+.btn:hover{background:var(--chip)}
+
+nav.stops{display:flex;gap:8px;flex-wrap:wrap;padding-block:18px 4px}
+nav.stops a{font-size:13px;font-weight:500;color:var(--ink);text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
+nav.stops a span{color:var(--green-ink);font-weight:700;font-variant-numeric:tabular-nums}
+
+section.stop{padding-block:36px 8px;display:grid;gap:18px;scroll-margin-top:72px}
+.stop-head{display:grid;gap:6px}
+.stop-num{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green-ink)}
+h2{font-family:var(--display);font-weight:700;font-size:26px;line-height:1.2;margin:0;text-wrap:balance}
+.why{font-size:14px;color:var(--muted);margin:0;max-width:62ch}
+.why b{color:var(--ink);font-weight:600}
+
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:10px;min-width:0}
+.q label.ask,.q .ask{font-weight:600;font-size:17px;line-height:1.35;display:block}
+.q .dig{font-family:var(--hand);font-size:19px;line-height:1.3;color:var(--green-ink);margin:0}
+.q.done{border-color:var(--green)}
+.q.done .ask::after{content:" ✓";color:var(--green-ink)}
+textarea,input[type=text]{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+textarea{min-height:88px}
+textarea::placeholder,input::placeholder{color:var(--muted);opacity:.85}
+textarea:focus,input:focus,.chip:focus-visible,.btn:focus-visible,nav.stops a:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:15px;border:1.5px solid var(--line);background:var(--chip);color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer;text-align:left}
+.chip small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.chip[aria-pressed=true]{background:var(--chip-on);border-color:var(--chip-on);color:var(--chip-on-ink)}
+.chip[aria-pressed=true] small{color:var(--chip-on-ink);opacity:.85}
+
+.friends{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.friend{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.friend h3{margin:0;font-size:18px;font-weight:700}
+.friend .row{display:grid;gap:4px}
+.friend .row label{font-size:14px;font-weight:600}
+.friend .row .dig{font-family:var(--hand);font-size:17px;color:var(--green-ink);margin:0;line-height:1.25}
+
+footer.end{padding-block:48px 0;display:grid;gap:10px;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:reduce){.track i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">ROAMR · Short video series</div>
+    <h1>The Story Sheet</h1>
+    <p class="lede">Fill this in like you're telling a friend about your favorite trip. Your answers become the characters, the look and the first 10 scripts.</p>
+    <div class="rules">
+      <p><b>No wrong answers.</b> Short is fine. Messy is fine.</p>
+      <p><b>The green handwriting</b> under each question asks for a little more. That's the part that makes it great.</p>
+      <p><b>It saves by itself</b> as you type. Come back any time. Christian can fill parts in too.</p>
+    </div>
+  </header>
+
+  <div class="bar" role="status" aria-live="polite">
+    <div class="track" aria-hidden="true"><i id="fill"></i></div>
+    <span class="count" id="count">0 answered</span>
+    <span class="status" id="save">Loading…</span>
+    <button class="btn" id="copy" type="button">Copy all answers</button>
+  </div>
+
+  <nav class="stops" id="stops" aria-label="Sections"></nav>
+  <main id="sheet"></main>
+
+  <footer class="end">
+    <p>When you're done, tell Claude "the sheet is ready." Claude reads it from here and builds the character sheets and the first scripts.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+// ---------- The questions ----------
+// type: long | short | one (pick one) | many (pick any)
+const STOPS = [
+ {id:"why", title:"Why we're making these",
+  why:"Every video has one job. If we know the job, every choice after this gets easy.",
+  qs:[
+   {id:"who", type:"long", ask:"Who is watching these videos?",
+    dig:"Picture one real person. How old? What do they do on a Saturday? Why haven't they gone outside more?",
+    ph:"Like: Maya, 24, just moved to Denver, wants to hike but doesn't know anyone who goes…"},
+   {id:"feel", type:"long", ask:"After one video, how should they feel?",
+    dig:"Pick one feeling first. Then tell me why that one.",
+    ph:"Like: 'I want to go this weekend.' Or 'Ha, that's my friend Josh.'"},
+   {id:"do", type:"many", ask:"What should they do right after?",
+    dig:"If you could only pick one, which one? Circle it in the box below.",
+    opts:["Follow the page","Tag a friend","Save the tip","Join the waitlist","Download the app","Share it"]},
+   {id:"do_note", type:"short", ask:"The ONE thing that matters most from the list above:", ph:"Tag a friend"},
+   {id:"magic", type:"long", ask:"What does ROAMR do that no other app does?",
+    dig:"Say it like you're telling a 9-year-old. One or two sentences.",
+    ph:"ROAMR helps you find people to go outside with, so you never have to skip a trip because nobody could come."},
+   {id:"pain", type:"long", ask:"What's the problem ROAMR fixes?",
+    dig:"When was the last time that problem happened to you? What did it feel like?"}
+  ]},
+
+ {id:"friends", title:"The friends",
+  why:"<b>AI video tools forget what a character looks like between clips.</b> The more exact you are here, the more the raccoon in video 30 matches video 1.",
+  qs:[
+   {id:"kind", type:"one", ask:"Who are the friends?",
+    dig:"Why that one? What do you picture when you see them?",
+    opts:[{v:"Animals",s:"cute, any age can relate"},{v:"Little people",s:"cool outfits, more like real users"},{v:"Animals dressed like people",s:"the best of both"},{v:"Not sure, show me both",s:"I'll make a test of each"}]},
+   {id:"kind_why", type:"short", ask:"Why did you pick that?", ph:"Because…"},
+   {id:"size", type:"one", ask:"How many friends are in the group?",
+    dig:"Fewer friends are easier to keep looking the same.",
+    opts:["2","3","4","5"]},
+   {id:"friendsCards", type:"friends"},
+   {id:"you", type:"long", ask:"Which friend is most like YOU? Which is most like Christian?",
+    dig:"What's the thing you each always do on a trip?"},
+   {id:"newbie", type:"long", ask:"Which friend is new to the outdoors?",
+    dig:"The viewer learns along with this friend. What are they scared of? What are they excited about?"},
+   {id:"never", type:"long", ask:"What should the friends NEVER do or be?",
+    dig:"Mean? Dumb? Too perfect? Anything that would feel off-brand."}
+  ]},
+
+ {id:"world", title:"Where they go",
+  why:"A place you can recognize in one second tells people what the video is about before anyone talks.",
+  qs:[
+   {id:"places", type:"many", ask:"Where do the friends go on adventures?",
+    dig:"Which one is home base, where most videos happen?",
+    opts:["Mountains","Forest","Lake","Desert","Beach","Snow","River","Camp site","City park"]},
+   {id:"real", type:"one", ask:"Real places or made-up places?",
+    opts:[{v:"Real",s:"like Zion or Yosemite"},{v:"Made-up",s:"our own world"},{v:"Made-up but inspired by real",s:""}]},
+   {id:"realnames", type:"short", ask:"If real, which places first?", ph:"Places you've been are best"},
+   {id:"time", type:"many", ask:"What time of day feels like ROAMR?",
+    dig:"Why that time? What's the light doing?",
+    opts:["Sunrise","Sunny noon","Golden hour","Sunset","Campfire night","Starry sky"]},
+   {id:"senses", type:"long", ask:"Close your eyes at your favorite spot. What do you hear and smell?",
+    dig:"These little sounds go in every video. Wind? Crunchy leaves? A zipper on a tent?"}
+  ]},
+
+ {id:"look", title:"How it looks",
+  why:"<b>Video tools follow exact words</b> like 'soft clay' or 'golden hour' much better than 'make it cool.' Pick the look, then say what you love about it.",
+  qs:[
+   {id:"style", type:"one", ask:"Which look do you like most?",
+    dig:"What exactly do you love about it? The colors? The softness? How it moves?",
+    opts:[{v:"Clay",s:"squishy, handmade, cozy"},{v:"3D movie",s:"shiny, big eyes, smooth"},{v:"Picture book",s:"soft painted colors"},{v:"Flat cartoon",s:"bold lines, simple"},{v:"Paper cut-out",s:"crafty, layered"},{v:"Anime",s:"dreamy skies, big feelings"}]},
+   {id:"loves", type:"long", ask:"Name 3 videos, shows or ads you love the look of.",
+    dig:"For each one, what's the one thing you'd steal? (We'll borrow the feeling, not copy the show.)"},
+   {id:"cringe", type:"long", ask:"What looks cringe or cheap to you?",
+    dig:"Anything you've seen in AI videos that made you scroll away?"},
+   {id:"colors", type:"one", ask:"How much ROAMR green and navy should we see?",
+    opts:[{v:"Everywhere",s:"gear, tents, shirts"},{v:"A little",s:"one thing each video"},{v:"Just the logo at the end",s:""}]},
+   {id:"merch", type:"one", ask:"Should the friends wear ROAMR Apparel?",
+    dig:"If yes, which piece? It could help sell the shop.",
+    opts:["Yes, always","Sometimes","No"]}
+  ]},
+
+ {id:"sound", title:"How it sounds",
+  why:"<b>Sound is half the hook.</b> The best prompt libraries time every sound to a moment: a whoosh, a snap, a silence.",
+  qs:[
+   {id:"talk", type:"one", ask:"Do the friends talk?",
+    dig:"What would that sound like? Fast and funny? Slow and calm?",
+    opts:[{v:"Yes, they talk",s:"real voices"},{v:"A narrator talks",s:"like a nature show"},{v:"No words",s:"just text on screen"},{v:"Only funny sounds",s:"grunts, gasps, giggles"}]},
+   {id:"voices", type:"long", ask:"If they talk, describe each voice.",
+    dig:"Think of a real person whose voice feels right, then tell me why."},
+   {id:"music", type:"many", ask:"What should the music feel like?",
+    opts:["Happy and bouncy","Chill lo-fi","Campfire guitar","Epic and big","Trending TikTok sounds","No music"]},
+   {id:"signature", type:"long", ask:"Is there one sound in EVERY video?",
+    dig:"Like a zipper, a whistle, a bird call. People remember sounds before they remember logos."}
+  ]},
+
+ {id:"stories", title:"The stories",
+  why:"Your real trips are the best scripts. A true story beats a made-up one every time.",
+  qs:[
+   {id:"lessons", type:"long", ask:"List the lessons you want to teach.",
+    dig:"Write as many as you can. Star the 3 you'd post first.",
+    ph:"Put out a fire the right way\nKeep bears out of your food\nTell someone your trip plan\nDon't bail on your crew at 6am\nPack it in, pack it out…"},
+   {id:"wrong", type:"long", ask:"Tell me about a time a trip went wrong.",
+    dig:"What happened first? What was the funny part? What did you learn?"},
+   {id:"stranger", type:"long", ask:"Tell me about a time a new friend made a trip better.",
+    dig:"How did you meet? What would have happened without them? (This is what ROAMR is for.)"},
+   {id:"funny", type:"long", ask:"What's the funniest thing that's happened to you outside?"},
+   {id:"annoying", type:"long", ask:"What do people do outside that drives you crazy?",
+    dig:"Loud music? Trash? Feeding animals? These make great 'don't be this friend' videos."},
+   {id:"nojoke", type:"long", ask:"What should we NEVER joke about?",
+    dig:"Things like real injuries, rescues, or people who died outside."}
+  ]},
+
+ {id:"shape", title:"Every video's shape",
+  why:"<b>Most people decide in the first 2 seconds.</b> A fixed start and end makes it a series people recognize.",
+  qs:[
+   {id:"length", type:"one", ask:"How long is each video?",
+    opts:[{v:"15 seconds",s:"one tip, one joke"},{v:"20 seconds",s:"room for a little story"},{v:"30 seconds",s:"a full mini-story"},{v:"Mix",s:"let the numbers decide"}]},
+   {id:"start", type:"long", ask:"What happens in the first 2 seconds?",
+    dig:"What would make YOU stop scrolling? A mistake? A big sound? A question?",
+    ph:"Like: the raccoon's tent is already on fire."},
+   {id:"end", type:"long", ask:"How does every video end?",
+    dig:"Same line every time? The friends high-five? The logo?"},
+   {id:"catch", type:"long", ask:"Catchphrase ideas?",
+    dig:"Write 5 even if they're bad. One will be good.",
+    ph:"Find your crew. / Don't roam alone. / Roam smart."},
+   {id:"series", type:"short", ask:"What's the series called?", ph:"Trail Rules? Camp Crew? Roam School?"},
+   {id:"text", type:"one", ask:"Words on the screen?",
+    opts:[{v:"Big captions",s:"every word"},{v:"Just the tip",s:"one line"},{v:"None",s:""}]}
+  ]},
+
+ {id:"post", title:"Posting it",
+  why:"A great video with nowhere to send people wastes the views. Let's plan where they go.",
+  qs:[
+   {id:"where", type:"many", ask:"Where do we post?", opts:["TikTok","Instagram Reels","YouTube Shorts","Facebook","X","Pinterest"]},
+   {id:"howmany", type:"one", ask:"How many videos a week can we really post?",
+    dig:"Pick what you can keep up for 3 months, not just 1 week.",
+    opts:["1","2–3","4–5","Every day"]},
+   {id:"who_posts", type:"short", ask:"Who posts and answers comments?", ph:"Andalo, Christian, both…"},
+   {id:"link", type:"one", ask:"Where should the link in our bio go right now?",
+    dig:"The app isn't in the stores yet. Where should excited people land?",
+    opts:["Waitlist page","The web app","Apparel shop","Not sure"]},
+   {id:"budget", type:"short", ask:"How much can we spend a month on making videos?", ph:"$0? $50? $200?"},
+   {id:"checker", type:"short", ask:"Who double-checks the safety tips are right?",
+    ph:"A ranger friend? A guide? Us + Leave No Trace?"}
+  ]},
+
+ {id:"win", title:"Winning",
+  why:"Decide now what 'working' means, so we know when to keep going and when to change.",
+  qs:[
+   {id:"win30", type:"long", ask:"After 30 days, what would make you say 'this is working'?",
+    dig:"Use a number. Followers? Waitlist sign-ups? Comments like 'this is me'?"},
+   {id:"stop", type:"long", ask:"What would make you change the plan?"},
+   {id:"dream", type:"long", ask:"Dream big: a year from now, what are people saying about these videos?"},
+   {id:"else", type:"long", ask:"Anything else in your brain?",
+    dig:"Ideas, worries, a weird thought at 2am. All of it."}
+  ]}
+];
+
+const FRIEND_FIELDS = [
+ {k:"name", label:"Name", dig:"Fun to say out loud?"},
+ {k:"animal", label:"What are they?", dig:"Which animal (or person)? Why that one?"},
+ {k:"word", label:"One word that is them", dig:"Bossy? Clumsy? Brave? Snacky?"},
+ {k:"look", label:"What do they look like?", dig:"Color of fur or hair, size, one thing you'd spot from far away."},
+ {k:"wear", label:"What do they always wear?", dig:"A hat? A too-big backpack? Same outfit every video."},
+ {k:"carry", label:"What do they always carry?"},
+ {k:"oops", label:"Their funny mistake", dig:"What do they always get wrong?"},
+ {k:"good", label:"What are they great at?", dig:"Everyone is the hero sometimes."},
+ {k:"says", label:"Something they always say"}
+];
+const FRIEND_SLOTS = ["Friend 1","Friend 2","Friend 3","Friend 4","Friend 5"];
+
+// ---------- State ----------
+let answers = {};
+const dirty = {};
+let db = null, ref = null, docExists = false, saving = false, saveTimer = null, writable = true;
+const LS = "roamr-story-sheet-draft";
+try{ const d = JSON.parse(localStorage.getItem(LS)||"null"); if(d && typeof d==="object") answers = d; }catch(e){}
+
+const $ = (s,el=document)=>el.querySelector(s);
+const sheet = $("#sheet"), stopsNav = $("#stops");
+
+function el(tag, attrs={}, ...kids){
+  const n = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k==="class") n.className=v; else if(k==="html") n.innerHTML=v; else n.setAttribute(k,v);
+  }
+  for(const c of kids){ if(c!=null) n.append(c); }
+  return n;
+}
+
+// ---------- Render ----------
+const inputs = {}; // id -> {kind, node}
+function render(){
+  STOPS.forEach((st,si)=>{
+    const sec = el("section",{class:"stop",id:"s-"+st.id});
+    sec.append(el("div",{class:"stop-head"},
+      el("div",{class:"stop-num"},"Stop "+(si+1)+" of "+STOPS.length),
+      el("h2",{},st.title),
+      el("p",{class:"why",html:st.why})));
+    st.qs.forEach(q=>{
+      if(q.type==="friends"){ sec.append(renderFriends()); return; }
+      const fid = "q-"+q.id;
+      const box = el("div",{class:"q","data-q":q.id});
+      if(q.type==="long"||q.type==="short"){
+        box.append(el("label",{class:"ask",for:fid},q.ask));
+        if(q.dig) box.append(el("p",{class:"dig"},q.dig));
+        const inp = q.type==="long" ? el("textarea",{id:fid,rows:"3"}) : el("input",{id:fid,type:"text",autocomplete:"off"});
+        if(q.ph) inp.placeholder = q.ph;
+        inp.addEventListener("input",()=>setAnswer(q.id,inp.value));
+        inputs[q.id] = {kind:"text",node:inp};
+        box.append(inp);
+      } else {
+        box.append(el("div",{class:"ask",id:fid+"-l"},q.ask));
+        if(q.dig) box.append(el("p",{class:"dig"},q.dig));
+        const wrap = el("div",{class:"chips",role:"group","aria-labelledby":fid+"-l"});
+        q.opts.forEach(o=>{
+          const v = typeof o==="string"?o:o.v, s = typeof o==="string"?"":o.s;
+          const b = el("button",{type:"button",class:"chip","aria-pressed":"false","data-v":v},v, s?el("small",{},s):null);
+          b.addEventListener("click",()=>{
+            let cur = answers[q.id];
+            if(q.type==="one"){ cur = cur===v ? "" : v; }
+            else { cur = Array.isArray(cur)?cur.slice():[]; const i=cur.indexOf(v); i>=0?cur.splice(i,1):cur.push(v); }
+            setAnswer(q.id,cur); paintChips(q.id);
+          });
+          wrap.append(b);
+        });
+        inputs[q.id] = {kind:q.type,node:wrap};
+        box.append(wrap);
+      }
+      sec.append(box);
+    });
+    sheet.append(sec);
+    stopsNav.append(el("a",{href:"#s-"+st.id}, el("span",{},String(si+1))," "+st.title));
+  });
+}
+function renderFriends(){
+  const grid = el("div",{class:"friends"});
+  FRIEND_SLOTS.forEach((label,i)=>{
+    const card = el("div",{class:"friend"}, el("h3",{},label + (i>=3?" (if you want one)":"")));
+    FRIEND_FIELDS.forEach(f=>{
+      const id = "f"+(i+1)+"_"+f.k, fid="q-"+id;
+      const inp = el("input",{id:fid,type:"text",autocomplete:"off"});
+      inp.addEventListener("input",()=>setAnswer(id,inp.value));
+      inputs[id] = {kind:"text",node:inp};
+      card.append(el("div",{class:"row"}, el("label",{for:fid},f.label), f.dig?el("p",{class:"dig"},f.dig):null, inp));
+    });
+    grid.append(card);
+  });
+  return grid;
+}
+function paintChips(id){
+  const it = inputs[id]; if(!it || it.kind==="text") return;
+  const cur = answers[id];
+  it.node.querySelectorAll(".chip").forEach(b=>{
+    const on = it.kind==="one" ? cur===b.dataset.v : Array.isArray(cur)&&cur.includes(b.dataset.v);
+    b.setAttribute("aria-pressed", on?"true":"false");
+  });
+}
+function paintAll(){
+  for(const [id,it] of Object.entries(inputs)){
+    if(it.kind==="text"){ if(document.activeElement!==it.node && !(id in dirty)) it.node.value = answers[id]||""; }
+    else paintChips(id);
+  }
+  progress();
+}
+function filled(v){ return Array.isArray(v) ? v.length>0 : !!(v && String(v).trim()); }
+function progress(){
+  let n=0, total=0;
+  document.querySelectorAll(".q[data-q]").forEach(box=>{
+    total++; const ok = filled(answers[box.dataset.q]); if(ok) n++; box.classList.toggle("done",ok);
+  });
+  const friendsDone = Object.keys(answers).filter(k=>/^f\d_/.test(k)&&filled(answers[k])).length;
+  $("#count").textContent = n+" of "+total+" answered" + (friendsDone?" · "+friendsDone+" friend details":"");
+  $("#fill").style.width = Math.round(100*n/Math.max(total,1))+"%";
+}
+
+// ---------- Save ----------
+function status(t,warn){ const s=$("#save"); s.textContent=t; s.classList.toggle("warn",!!warn); }
+function setAnswer(id,val){
+  answers[id]=val; dirty[id]=val;
+  try{ localStorage.setItem(LS, JSON.stringify(answers)); }catch(e){}
+  progress();
+  if(!db){ status(writable? "Saved on this device" : "Saved on this device only"); return; }
+  status("Saving…");
+  clearTimeout(saveTimer); saveTimer=setTimeout(flush,1200);
+}
+async function flush(){
+  if(!ref || saving) { if(saving){ clearTimeout(saveTimer); saveTimer=setTimeout(flush,600);} return; }
+  const batch = Object.assign({},dirty); if(!Object.keys(batch).length) return;
+  for(const k in batch) delete dirty[k];
+  saving=true;
+  try{
+    if(docExists) await ref.update({answers:batch, updatedAt:new Date().toISOString()});
+    else { await ref.set({answers:Object.assign({},answers), updatedAt:new Date().toISOString()}); docExists=true; }
+    status("Saved ✓");
+  }catch(e){
+    Object.assign(dirty,batch);
+    if(e && e.code==="invalid_argument" && !docExists){ status("You can read this sheet but not save to it. Answers stay on this device.",true); writable=false; db=null; }
+    else if(e && e.code==="invalid_argument"){ docExists=false; status("Retrying…"); setTimeout(flush,800); }
+    else if(e && e.code==="unavailable"){ status("Connection blip, retrying…",true); setTimeout(flush,1500+Math.random()*1000); }
+    else status("Couldn't save online. Answers are kept on this device.",true);
+  }finally{ saving=false; }
+  if(Object.keys(dirty).length){ clearTimeout(saveTimer); saveTimer=setTimeout(flush,400); }
+}
+
+// ---------- Copy ----------
+function asText(){
+  const out=["ROAMR STORY SHEET",""];
+  STOPS.forEach((st,si)=>{
+    out.push("== "+(si+1)+". "+st.title+" ==");
+    st.qs.forEach(q=>{
+      if(q.type==="friends"){
+        FRIEND_SLOTS.forEach((label,i)=>{
+          const rows = FRIEND_FIELDS.map(f=>[f.label,answers["f"+(i+1)+"_"+f.k]]).filter(r=>filled(r[1]));
+          if(rows.length){ out.push(label+":"); rows.forEach(r=>out.push("  "+r[0]+": "+r[1])); }
+        }); return;
+      }
+      const v=answers[q.id]; out.push(q.ask); out.push("  "+(filled(v)?(Array.isArray(v)?v.join(", "):v):"(blank)"));
+    });
+    out.push("");
+  });
+  return out.join("\n");
+}
+$("#copy").addEventListener("click",()=>{
+  const t=asText();
+  const p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject();
+  p.then(()=>status("Copied ✓")).catch(()=>{
+    const ta=el("textarea",{"aria-label":"All answers"}); ta.value=t; ta.style.minHeight="240px";
+    $("footer.end").prepend(ta); ta.focus(); ta.select(); status("Select all and copy the box below");
+  });
+});
+
+// ---------- Boot ----------
+render(); paintAll();
+status("Saved on this device");
+(async()=>{
+  try{
+    if(!window.claude || !window.claude.use) return;
+    db = await window.claude.use("db");
+    if(!db){ status("Saved on this device"); return; }
+    ref = db.doc("brief/main");
+    let loaded=false;
+    const t = setTimeout(()=>{ if(!loaded) status("Can't reach the saved sheet yet. Keep typing, it saves here too.",true); },10000);
+    ref.onSnapshot(snap=>{
+      if(!snap.metadata.fromCache){ loaded=true; clearTimeout(t); }
+      docExists = snap.exists;
+      if(snap.exists){
+        const remote = (snap.data().answers)||{};
+        const local = answers;
+        answers = Object.assign({}, remote);
+        // keep anything typed here that isn't saved yet, and local-only drafts
+        for(const k in dirty) answers[k]=dirty[k];
+        if(!snap.metadata.hasPendingWrites){
+          for(const k in local){ if(!(k in remote) && filled(local[k])){ answers[k]=local[k]; dirty[k]=local[k]; } }
+          if(Object.keys(dirty).length){ clearTimeout(saveTimer); saveTimer=setTimeout(flush,800); }
+        }
+        paintAll();
+        if(loaded && !saving && !Object.keys(dirty).length) status("Saved ✓");
+      } else if(loaded) {
+        // first visit: push any device draft up
+        for(const k in answers) if(filled(answers[k])) dirty[k]=answers[k];
+        if(Object.keys(dirty).length){ clearTimeout(saveTimer); saveTimer=setTimeout(flush,800); }
+        else status("Ready");
+      }
+    }, err=>{ clearTimeout(t); status("Saving online stopped. Answers stay on this device.",true); db=null; });
+  }catch(e){ status("Saved on this device"); }
+})();
+})();
+</script>
