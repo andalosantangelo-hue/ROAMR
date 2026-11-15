@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSafety } from "../store/SafetyContext.jsx";
 import { TRIP_STATUS } from "../lib/safety.js";
 import StatusBar from "../components/StatusBar.jsx";
 import { Plus } from "../components/Icons.jsx";
+import { SkeletonRegion, TripCardSkeleton } from "../components/skeletons";
 
 const fmt = (ts) => {
   const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
@@ -12,6 +14,17 @@ const fmt = (ts) => {
 export default function TripPlans() {
   const nav = useNavigate();
   const { myTrips, loadingTrips, startTrip, checkInSafe, cancelTrip } = useSafety();
+  const [busyId, setBusyId] = useState(null);
+  const [tripError, setTripError] = useState(null);
+  // Start can wait up to 8s for GPS; without a busy state people tapped again, and
+  // failures were unhandled with no feedback.
+  const run = async (id, action) => {
+    if (busyId) return;
+    setBusyId(id); setTripError(null);
+    try { await action(id); }
+    catch { setTripError({ id, msg: "That didn't go through. Check your connection and try again." }); }
+    finally { setBusyId(null); }
+  };
 
   return (
     <div className="h-full flex flex-col bg-brand-tint/40">
@@ -23,7 +36,11 @@ export default function TripPlans() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3 space-y-3">
-        {loadingTrips ? <p className="text-center text-muted text-sm mt-10">Loading…</p>
+        {loadingTrips ? (
+          <SkeletonRegion label="Loading trip plans" className="space-y-3">
+            {[0, 1].map((i) => <TripCardSkeleton key={i} />)}
+          </SkeletonRegion>
+        )
           : myTrips.length === 0 ? (
             <div className="text-center mt-16 px-8">
               <p className="font-extrabold text-brand-navy text-lg mb-1">No trip plans yet</p>
@@ -46,17 +63,18 @@ export default function TripPlans() {
                   {t.expectedReturnAt && <span>Back by {fmt(t.expectedReturnAt)}</span>}
                 </div>
                 {t.emergencyContact?.name && <p className="text-[12px] text-ink/60 mt-1">Contact: {t.emergencyContact.name}</p>}
+                {tripError?.id === t.id && <p role="alert" className="text-red-600 text-[13px] mt-2">{tripError.msg}</p>}
 
                 {t.status === "planned" && (
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => startTrip(t.id)} className="flex-1 rounded-xl bg-brand-green text-white font-semibold py-2.5 text-sm">Start trip</button>
-                    <button onClick={() => cancelTrip(t.id)} className="rounded-xl bg-brand-tint text-brand-navy font-semibold py-2.5 px-4 text-sm">Cancel</button>
+                    <button disabled={busyId === t.id} onClick={() => run(t.id, startTrip)} className="flex-1 rounded-xl bg-brand-green text-white font-semibold py-2.5 text-sm disabled:opacity-60">{busyId === t.id ? "Starting…" : "Start trip"}</button>
+                    <button disabled={busyId === t.id} onClick={() => run(t.id, cancelTrip)} className="rounded-xl bg-brand-tint text-brand-navy font-semibold py-2.5 px-4 text-sm disabled:opacity-60">Cancel</button>
                   </div>
                 )}
                 {(t.status === "active" || t.status === "overdue") && (
                   <div className="mt-3">
-                    {t.status === "overdue" && <p className="text-red-600 text-[13px] font-semibold mb-2">You're past your return time. Check in or your contact will be alerted.</p>}
-                    <button onClick={() => checkInSafe(t.id)} className="w-full rounded-xl bg-brand-green text-white font-semibold py-2.5 text-sm">✓ Check in — I'm back safe</button>
+                    {t.status === "overdue" && <p className="text-red-600 text-[13px] font-semibold mb-2">You're past your return time. Check in now so your partners know you're safe.</p>}
+                    <button disabled={busyId === t.id} onClick={() => run(t.id, checkInSafe)} className="w-full rounded-xl bg-brand-green text-white font-semibold py-2.5 text-sm disabled:opacity-60">✓ Check in — I'm back safe</button>
                   </div>
                 )}
               </div>

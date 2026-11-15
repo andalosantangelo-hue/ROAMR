@@ -1,7 +1,7 @@
 # ROAMR — Progress / session handoff
 
 Keep this short. Overwrite stale sections instead of appending history (git log has history).
-Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64 (CI fix). CI is green on `main`. Deployed to roamr-55afb on 2026-10-28 (rules, indexes, storage, 28 functions incl. new `shopCatalog`, hosting).
+Last updated: 2026-11-08. Live on roamr-55afb: everything through #66 + #88 (`/welcome`, empty states); all 28 functions on Node 22; Deploy workflow works (service-account secret + IAM roles fixed 2026-11-05). CI: #90 bumped firebase-tools to 15.35 (Firestore emulator 1.22.0, fixes the tribe-chat e2e failure); #91 (counter audit waits for triggers to settle) pending merge.
 
 > ⚠️ If a local session (Windows/OneDrive) has uncommitted work, push it and update this file.
 
@@ -14,13 +14,13 @@ Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64
 - Trust & security: report/block (enforced in feeds, DMs, group chat), hardened Firestore/Storage rules, PII in private subcollection, server-side counters + rate limits, CSP/security headers, consent banner, account deletion.
 - Help Center, on-device Help Bot, Guides, About, in-app legal pages (`/legal/:doc`).
 - Alpha edits (#62): email-verify card in Notifications + Profile row; single location field with GPS/recents/Photon search, activities store `{lat,lng}`; Activities List/Map (Leaflet) + 10–100 mi radius; notifications show actor name/photo + follow back; ROAMR Apparel reads live Shopify catalog via `shopCatalog` function (snapshot fallback) with bag + cart-permalink checkout; rich posts (2,200-char story, up to 10 media: 4K photo, 360°, video ≤5 min, audio, resumable uploads); fix for empty feeds after login.
+- Verified Guides (this branch): `/guide/apply` application (private `guideApplications/{uid}`, always submitted as pending), admin approves in the console → `onGuideApplicationWrite` sets the public `users/{uid}.guide` badge + notifies. How to review: `docs/GUIDE-APPROVALS.md`.
 - Tests (vitest + rules tests) and CI (lint, test, coverage gate, build, audit, gitleaks).
+- #66: per-field type/size validation in rules, server-side account deletion (`deleteAccount` callable), idempotent counters, daily notification dedupe, beta-run bug fixes, skeleton loading, offline posting, synthetic-user e2e + rules job in CI. Post media URLs are checked by the renderer + `onPostCreate`, not rules (rules expression limit).
 
 ## Open — needs code
-- [ ] **URGENT:** Cloud Functions Node.js 20 runtime is decommissioned 2026-10-30 — after that, functions can't be redeployed. Move `functions/package.json` + `firebase.json` to Node 22 and upgrade `firebase-functions` (breaking changes), test with emulator, redeploy.
 - [ ] Before real traffic (from #62): paid map tiles + geocoder instead of OSM/Photon, video transcoding (also strips GPS metadata), geohash queries for the map.
-- [ ] Firestore field-validation rules + move `fcmTokens`/`notificationPrefs` to private subcollection — verify with `npm run test:rules` first (CHECKLIST-STATUS.md).
-- [ ] Account-deletion fan-out as a Cloud Function (other users' presence docs, Storage cleanup) — client-side only today.
+- [ ] Move `fcmTokens`/`notificationPrefs` to private subcollection (field validation + server-side deletion are done in #66).
 - [ ] Bug list in ROAMR-BACKLOG.md is empty; run its test pass on a real device and log findings.
 - [ ] README.md screen checklist is stale (all screens exist) — fix or delete.
 
@@ -34,9 +34,11 @@ Last updated: 2026-10-28, after merging #62 (Alpha edits), #63 (these docs), #64
 - [ ] Confirm Premium is display-only at launch (no payment processor)
 
 ## Next up (pick from here)
-1. Node 22 functions upgrade (see URGENT above).
-2. Device test pass on the live link (posting with video, map, apparel checkout) → log bugs in ROAMR-BACKLOG.md.
-3. Close or merge the ~45 stale remote branches so sessions stop tripping over old versions.
+1. **Guides (business priority):** recruit 3 independent guides (start with fly fishing). Run their first trips by hand: they set the price, take payment via a Stripe Payment Link, ROAMR keeps a small cut and pays them out; list the trip as an activity. Measure whether clients pay through ROAMR and come back.
+2. **Before ROAMR takes any cut:** one hour with a lawyer who knows outdoor recreation. Some states may treat ROAMR as booking agent/outfitter once it takes money for guided trips.
+3. Next code after Verified Guides: "paid trip" activity type for approved guides (price + "Book with <guide>" link, no in-app payments yet). In-app payments + commission (Stripe Connect) only once hand-run trips work.
+4. Tribe organizer "Pro" tools (recurring events, roles, private tribes, attendance stats) — later, a subscription; keep joining/creating tribes free. Never paywall safety features.
+5. Device test pass on the live link → log bugs in ROAMR-BACKLOG.md. Close the ~45 stale remote branches.
 
 ## Decisions worth remembering
 - Deploys: Actions → Deploy workflow (needs `FIREBASE_SERVICE_ACCOUNT` secret to be valid key JSON; first attempt failed on a bad paste) or `firebase deploy` from a logged-in machine.

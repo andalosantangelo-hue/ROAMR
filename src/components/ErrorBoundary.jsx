@@ -11,6 +11,9 @@ export default class ErrorBoundary extends React.Component {
   }
   render() {
     if (!this.state.hasError) return this.props.children;
+    // Scoped boundaries (one per feed card) pass a fallback so a single bad record hides
+    // that card instead of replacing the whole app with the crash screen.
+    if (this.props.fallback !== undefined) return this.props.fallback;
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center text-center px-8 bg-brand-tint">
         <Logo size={56} showWord={false} className="mb-5" />

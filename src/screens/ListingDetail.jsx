@@ -6,6 +6,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useListings } from "../store/ListingsContext.jsx";
 import StatusBar from "../components/StatusBar.jsx";
 import { Market } from "../components/Icons.jsx";
+import { SkeletonRegion, DetailSkeleton } from "../components/skeletons";
 
 const STATUSES = ["active", "reserved", "sold"];
 
@@ -39,7 +40,7 @@ export default function ListingDetail() {
       </div>
 
       {loading ? (
-        <div className="flex-1 grid place-items-center text-muted">Loading…</div>
+        <SkeletonRegion label="Loading listing" className="flex-1 flex flex-col min-h-0"><DetailSkeleton /></SkeletonRegion>
       ) : !listing ? (
         <div className="flex-1 grid place-items-center text-muted">Listing not found.</div>
       ) : (

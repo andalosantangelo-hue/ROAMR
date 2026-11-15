@@ -27,6 +27,7 @@ export default function LeaveReview() {
   const [ratings, setRatings] = useState({});
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getDoc(doc(db, "users", uid)).then((s) => { if (s.exists()) setName(s.data().displayName || "this partner"); }).catch(() => {});
@@ -37,9 +38,9 @@ export default function LeaveReview() {
 
   const submit = async () => {
     if (!canSave) return;
-    setBusy(true);
+    setBusy(true); setError("");
     try { await leaveReview(uid, ratings, text); nav(`/u/${uid}`); }
-    catch { setBusy(false); }
+    catch (e) { setError(/already reviewed/.test(e.message) ? e.message : "Your review couldn't be posted. Please try again."); setBusy(false); }
   };
 
   return (
@@ -63,6 +64,7 @@ export default function LeaveReview() {
         <div className="h-4" />
       </div>
       <div className="px-6 pb-7 pt-3 border-t border-black/5">
+        {error && <p role="alert" className="text-red-600 text-sm mb-3">{error}</p>}
         <button disabled={!canSave} onClick={submit}
           className={`w-full rounded-xl py-4 font-semibold transition ${canSave ? "bg-brand-green hover:bg-brand-greenDark text-white" : "bg-black/15 text-white/90 cursor-not-allowed"}`}>
           {busy ? "Submitting…" : "Submit review"}

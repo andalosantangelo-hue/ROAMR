@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useSafety } from "../store/SafetyContext.jsx";
 import { GRACE_OPTIONS } from "../lib/safety.js";
+import { friendlyError } from "../lib/image.js";
 import StatusBar from "../components/StatusBar.jsx";
 
 const inputCls = "w-full rounded-xl border border-black/10 bg-white px-4 py-3.5 text-[15px] outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/30 placeholder:text-muted";
@@ -28,19 +29,28 @@ export default function TripPlanForm() {
 
   const submit = async () => {
     if (!canSave) return;
+    const start = startAt ? new Date(startAt) : new Date();
+    const back = new Date(returnAt);
+    // A return time in the past (or before the start) flipped the trip to "overdue"
+    // within 15 minutes of starting it.
+    if (!(back.getTime() > Date.now())) { setError("Your expected return time needs to be in the future."); return; }
+    if (!(back.getTime() > start.getTime())) { setError("Your expected return needs to be after your start time."); return; }
     setBusy(true); setError("");
     try {
       await createTripPlan({
-        objective, activity, area,
-        startAt: startAt ? new Date(startAt) : new Date(),
-        expectedReturnAt: new Date(returnAt),
-        partners: partners.split(/[\n,]/).map((x) => x.trim()).filter(Boolean).slice(0, 12),
+        objective: objective.trim().slice(0, 200), activity: activity.trim().slice(0, 80), area: area.trim().slice(0, 500),
+        startAt: start,
+        expectedReturnAt: back,
+        // Typed names are a note for the record only. Sharing a plan works by account
+        // (partners = user ids), which needs a friend picker — names never granted access.
+        partners: [],
+        partnerNames: partners.split(/[\n,]/).map((x) => x.trim().slice(0, 60)).filter(Boolean).slice(0, 10),
         emergencyContact: ec ? { name: ec.name || "", phone: ec.phone || "", relation: ec.relation || "" } : null,
         shareMedical, medical: shareMedical ? (profile?.medical || null) : null,
         graceMins,
       });
       nav("/safety/trips");
-    } catch (e) { setError(e.message || "Could not save plan."); setBusy(false); }
+    } catch (e) { setError(friendlyError(e, "Your trip plan couldn't be saved. Please try again.")); setBusy(false); }
   };
 
   return (
@@ -52,11 +62,11 @@ export default function TripPlanForm() {
       </div>
       <div className="flex-1 px-6 pt-4 overflow-y-auto no-scrollbar">
         <Lbl>Objective</Lbl>
-        <input value={objective} onChange={(e) => setObjective(e.target.value)} placeholder="e.g. Summit Mt. Sneffels via SW ridge" className={inputCls} />
+        <input value={objective} onChange={(e) => setObjective(e.target.value)} maxLength={200} placeholder="e.g. Summit Mt. Sneffels via SW ridge" className={inputCls} />
         <Lbl>Activity</Lbl>
         <input value={activity} onChange={(e) => setActivity(e.target.value)} placeholder="e.g. Alpine climb" className={inputCls} />
         <Lbl>Area / route / trailhead</Lbl>
-        <textarea value={area} onChange={(e) => setArea(e.target.value)} rows={2} placeholder="Trailhead, route, where you'll park" className={`${inputCls} resize-none`} />
+        <textarea value={area} onChange={(e) => setArea(e.target.value)} rows={2} maxLength={500} placeholder="Trailhead, route, where you'll park" className={`${inputCls} resize-none`} />
         <Lbl>Start</Lbl>
         <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={inputCls} />
         <Lbl>Expected return</Lbl>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import StatusBar from "../components/StatusBar.jsx";
 import LogoCheck from "../components/LogoCheck.jsx";
 import { Hiking, Water, Bike, Nature, Snow, Check } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { track } from "../lib/analytics.js";
-import { titleCase, ageOn } from "../lib/util.js";
+import { titleCase, ageOn, safeReturnPath } from "../lib/util.js";
 import { AVAILABILITY } from "../lib/profile.js";
 
 const ACTIVITIES = [
@@ -19,6 +19,7 @@ const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 
 export default function Onboarding() {
   const nav = useNavigate();
+  const from = safeReturnPath(useLocation().state?.from);
   const { user, profile, saveInterests, saveProfile, savePrivate, logout } = useAuth();
   // Step 0 is the 18+ gate; every sign-in method lands here until it's passed.
   const [step, setStep] = useState(profile?.ageConfirmed ? 1 : 0);
@@ -77,14 +78,13 @@ export default function Onboarding() {
     track("age_confirmed");
     // Let the check mark land, then continue. Already-onboarded users go straight home.
     setTimeout(() => {
-      if (profile?.interests?.length) nav("/app/home", { replace: true });
+      if (profile?.interests?.length) nav(from || "/app/home", { replace: true });
       else setStep(1);
     }, 900);
   };
 
   const finish = async () => {
-    setBusy(true);
-    setError("");
+    setBusy(true); setError("");
     try {
       const skillLevels = {};
       selected.forEach((id) => { skillLevels[id] = levels[id] || "Beginner"; });
@@ -93,12 +93,13 @@ export default function Onboarding() {
         location: location.trim(), availability, prompts });
       await saveInterests(selected);
     } catch {
+      // Used to be swallowed: the user landed on Home with no name or interests saved.
+      setError("We couldn't save your profile. Check your connection and tap Finish again.");
       setBusy(false);
-      setError("Couldn't save your picks — check your connection and try again.");
       return;
     }
     track("onboarding_complete", { count: selected.length });
-    nav("/app/home");
+    nav(from || "/app/home", { replace: true });
   };
 
   return (
