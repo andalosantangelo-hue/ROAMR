@@ -100,10 +100,12 @@ service cloud.firestore {
         && d().get('followingCount', 0) == 0
         && d().get('subscription', {'tier':'basic'}).tier == 'basic'
         && validUser();
-      // owner-only; counters + subscription are server-maintained
+      // owner-only; counters, subscription and the Verified Guide badge (`guide`) are
+      // server-maintained. `guide` is allowed in the key list only so a guide can still
+      // edit the rest of their profile; unchanged() stops them writing it.
       allow update: if isUser(uid)
-        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt','gender'])
-        && unchanged(['uid','followerCount','followingCount','subscription','createdAt','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount'])
+        && keysOnly(['uid','displayName','photoURL','bio','interests','subInterests','skillLevels','prompts','photos','style','pace','availability','willTravel','certifications','gearShare','lookingFor','experience','terrain','intensity','risk','type2','tripDuration','planning','fitness','trainingFor','seasons','leadTime','languages','pets','partnerWants','dealbreakers','bucketList','recentTrips','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','whoCanMessage','verifiedOnly','womenOnly','location','subscription','followerCount','followingCount','createdAt','updatedAt','gender','guide'])
+        && unchanged(['uid','followerCount','followingCount','subscription','createdAt','verified','verifiedTier','adventuresCompleted','ratingAvg','ratingCount','vouchCount','guide'])
         // Legacy docs may still carry a public `gender`; it can be kept or removed
         // (migrated to private/data) but never newly written here.
         && (!has('gender') || (resource.data.keys().hasAny(['gender']) && d().gender == resource.data.gender))
@@ -359,6 +361,31 @@ service cloud.firestore {
     // Identity verification submissions — write-only for the owner; reviewed out-of-band.
     // status is forced to 'pending'. A rejected (or still-pending) submission can be
     // replaced with a new selfie; approval is admin-only.
+    // Verified Guide applications. Private to the applicant: they hold licence and
+    // insurance details. A client can only ever submit "pending"; approval is an admin
+    // edit in the console, which onGuideApplicationWrite turns into the public
+    // users/{uid}.guide badge. Approved applications are locked (no self-edits).
+    // Field limits mirror GUIDE_LIMITS in src/lib/guide.js.
+    match /guideApplications/{uid} {
+      function validGuideApp() {
+        return keysOnly(['uid','fullName','specialties','region','experienceYears','certifications','license',
+                         'insuranceProvider','insurancePolicy','insuranceExpires','website','bio','status','createdAt'])
+          && d().uid == uid && d().status == 'pending'
+          && reqStr('fullName', 2, 80)
+          && d().specialties is list && d().specialties.size() >= 1 && d().specialties.size() <= 6
+          && reqStr('region', 2, 200)
+          && d().experienceYears is int && d().experienceYears >= 0 && d().experienceYears <= 80
+          && optStr('certifications', 500) && reqStr('license', 2, 300)
+          && reqStr('insuranceProvider', 2, 120) && reqStr('insurancePolicy', 2, 80)
+          && reqStr('insuranceExpires', 10, 10)
+          && optStr('website', 300) && optStr('bio', 1000);
+      }
+      allow read: if isUser(uid);
+      allow create: if isUser(uid) && validGuideApp();
+      allow update: if isUser(uid) && resource.data.status in ['pending', 'rejected'] && validGuideApp();
+      allow delete: if false;
+    }
+
     match /verifications/{uid} {
       allow read: if false;
       allow create: if isUser(uid) && keysOnly(['uid','selfie','status','createdAt'])

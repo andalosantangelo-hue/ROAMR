@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Profile as UserIcon } from "../components/Icons.jsx";
+import { Edit, Gear, Card, Help, Info, Comment, Check, ChevronRight, Star, Profile as UserIcon } from "../components/Icons.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { titleCase } from "../lib/util.js";
 import { SkeletonRegion, ProfileHeaderSkeleton } from "../components/skeletons";
 import VerifyCard from "../components/VerifyBanner.jsx";
+import { guideBadge } from "../lib/guide.js";
 
 const ITEMS = [
   { icon: Edit, title: "Edit Profile", sub: "Update personal info and picture", to: "/edit-profile" },
@@ -49,7 +50,12 @@ export default function Profile() {
 
       <div className="divide-y divide-black/5">
         <VerifyCard variant="row" />
-        {ITEMS.map(({ icon: Icon, title, sub, to }) => (
+        {[ITEMS[0], {
+          icon: Star,
+          title: guideBadge(profile) ? "Verified guide" : "Become a verified guide",
+          sub: guideBadge(profile) || "Licensed guide? Get a badge and list your trips",
+          to: "/guide/apply",
+        }, ...ITEMS.slice(1)].map(({ icon: Icon, title, sub, to }) => (
           <button key={title} onClick={() => nav(to)}
             className="w-full flex items-center gap-4 py-4 text-left">
             <Icon className="w-6 h-6 text-brand-navy shrink-0" />

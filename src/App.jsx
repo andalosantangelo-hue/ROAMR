@@ -38,6 +38,7 @@ import TripPlans from "./screens/TripPlans.jsx";
 import LeaveReview from "./screens/LeaveReview.jsx";
 import Legal from "./screens/Legal.jsx";
 import Welcome from "./screens/Welcome.jsx";
+import GuideApply from "./screens/GuideApply.jsx";
 import { TribesProvider } from "./store/TribesContext.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { PostsProvider } from "./store/PostsContext.jsx";
@@ -96,6 +97,7 @@ export default function App() {
         <Route path="/chat/:threadId" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/safety" element={<RequireAuth><SafetyCenter /></RequireAuth>} />
         <Route path="/safety/verify" element={<RequireAuth><Verify /></RequireAuth>} />
+        <Route path="/guide/apply" element={<RequireAuth><GuideApply /></RequireAuth>} />
         <Route path="/safety/emergency" element={<RequireAuth><EmergencyInfo /></RequireAuth>} />
         <Route path="/safety/controls" element={<RequireAuth><SafetyControls /></RequireAuth>} />
         <Route path="/safety/waiver" element={<RequireAuth><Waiver /></RequireAuth>} />

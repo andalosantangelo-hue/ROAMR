@@ -7,6 +7,7 @@ import { useMessages } from "../store/MessagesContext.jsx";
 import { useSafety } from "../store/SafetyContext.jsx";
 import * as P from "../lib/profile.js";
 import { trustLabel, VERIFY_TIERS } from "../lib/safety.js";
+import { guideBadge } from "../lib/guide.js";
 import StatusBar from "../components/StatusBar.jsx";
 import PostCard from "../components/PostCard.jsx";
 import FollowButton from "../components/FollowButton.jsx";
@@ -163,6 +164,7 @@ export default function PublicProfile() {
           {/* Trust strip */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] mb-3">
             {p?.verified && <span className="inline-flex items-center gap-1 text-brand-green font-semibold"><Check className="w-4 h-4" />{VERIFY_TIERS[p.verifiedTier] || "Verified"}</span>}
+            {guideBadge(p) && <span className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white px-2.5 py-0.5 font-semibold"><Star className="w-3.5 h-3.5 text-brand-greenBright" />{guideBadge(p)}</span>}
             {(p?.adventuresCompleted > 0) && <span className="text-ink/80 font-medium">✓ {p.adventuresCompleted} adventures</span>}
             <span className="inline-flex items-center gap-1 text-ink/80 font-medium"><Star className="w-4 h-4 text-brand-green" />{trust.isNew ? "New partner" : trust.text}</span>
             {(p?.vouchCount > 0) && <span className="text-ink/80 font-medium">👍 {p.vouchCount} vouches</span>}

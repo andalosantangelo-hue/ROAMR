@@ -2,7 +2,7 @@
 // Server-authoritative counters (tamper-proof) + push notifications + per-user rate limits.
 // Deploy: `firebase deploy --only functions` (Blaze plan).
 const {
-  onDocumentCreated, onDocumentCreatedWithAuthContext, onDocumentDeleted, onDocumentUpdated,
+  onDocumentCreated, onDocumentCreatedWithAuthContext, onDocumentDeleted, onDocumentUpdated, onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -367,6 +367,48 @@ exports.onFollowDelete = onDocumentDeleted("users/{uid}/following/{targetUid}", 
 
 /* ====================== TRUST & SAFETY ====================== */
 
+/* Verified Guides. A guide submits guideApplications/{uid} (always "pending"; rules
+ * block self-approval). An admin reviews the licence/insurance details and sets
+ * status to "approved" or "rejected" in the console. This mirrors the decision onto
+ * the public profile: approved → users/{uid}.guide = { verified, specialties, region,
+ * since }, anything else → the badge is removed. Licence and insurance details stay in
+ * the private application doc and are never copied to the profile. */
+// System notice (no actor), like the overdue-trip alert: notifyAndRecord's daily dedupe
+// needs an actor, so it would drop these.
+async function guideNotice(uid, title, body, action) {
+  try {
+    await record(uid, null, "guide", action, "/guide/apply");
+    await notify(uid, null, "guideStatus", title, body, { type: "guide", id: uid });
+  } catch (err) { logger.warn("guide notice failed", { uid, err: err.message }); }
+}
+exports.onGuideApplicationWrite = onDocumentWritten("guideApplications/{uid}", async (e) => {
+  const { uid } = e.params;
+  const before = e.data.before.exists ? e.data.before.data() : null;
+  const after = e.data.after.exists ? e.data.after.data() : null;
+  const was = before?.status === "approved";
+  const now = after?.status === "approved";
+  const user = db.doc(`users/${uid}`);
+  const specialties = (Array.isArray(after?.specialties) ? after.specialties : []).slice(0, 6).map((x) => String(x).slice(0, 40));
+  const region = String(after?.region || "").slice(0, 200);
+  const ignoreMissing = (err) => { if (err.code !== 5) throw err; }; // 5 = NOT_FOUND (account deleted)
+  if (now && !was) {
+    await user.update({ guide: { verified: true, specialties, region, since: FieldValue.serverTimestamp() } }).catch(ignoreMissing);
+    await guideNotice(uid, "You're a verified guide",
+      "Your guide application was approved. Your profile now shows the Verified Guide badge.",
+      "Your guide application was approved");
+  } else if (now && was) {
+    await user.update({ "guide.specialties": specialties, "guide.region": region }).catch(ignoreMissing);
+  } else if (was) {
+    await user.update({ guide: FieldValue.delete() }).catch(ignoreMissing);
+  }
+  if (after?.status === "rejected" && before?.status !== "rejected") {
+    await guideNotice(uid, "Guide application update",
+      "We couldn't approve your guide application yet. Open it to see what to update.",
+      "Your guide application needs changes");
+  }
+});
+
+
 /* Vouches -> vouchCount */
 exports.onReferenceCreate = onDocumentCreated("users/{uid}/references/{fromUid}", (e) => once(e, async () => {
   await bump(`users/${e.params.uid}`, "vouchCount", 1);
@@ -483,6 +525,7 @@ exports.deleteAccount = onCall({ timeoutSeconds: 540, memory: "512MiB" }, async 
   counts.followers = await del(db.collectionGroup("following").where("targetUid", "==", uid));
   // Private records, then the profile (with following/blocked/saves/notifications/private/...).
   await db.doc(`verifications/${uid}`).delete().catch(() => {});
+  await db.doc(`guideApplications/${uid}`).delete().catch(() => {});
   await db.recursiveDelete(db.doc(`users/${uid}`));
   // Storage: every prefix that's scoped to this uid.
   const bucket = getStorage().bucket();
