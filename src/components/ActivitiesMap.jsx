@@ -93,7 +93,7 @@ export default function ActivitiesMap({ items, center, radiusMiles, onSearchArea
       map.current.setView([center.lat, center.lng], 10);
     }
     setMoved(false);
-  }, [ready, center?.lat, center?.lng, radiusMiles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, center?.lat, center?.lng, radiusMiles]);  
 
   const unmapped = items.filter((a) => a.geo?.lat == null).length;
 

@@ -9,7 +9,7 @@ import { useAuth } from "./AuthContext.jsx";
 const MessagesContext = createContext(null);
 
 export function MessagesProvider({ children }) {
-  const { user, profile, blockedIds } = useAuth();
+  const { user, blockedIds } = useAuth();
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,15 +42,24 @@ export function MessagesProvider({ children }) {
     const ref = doc(db, "threads", tid);
     const snap = await getDoc(ref);
     if (!snap.exists()) {
-      const myName = profile?.displayName || user.displayName || (user.email ? user.email.split("@")[0] : "Explorer");
-      await setDoc(ref, {
-        participants: [user.uid, other.uid],
-        participantNames: { [user.uid]: myName, [other.uid]: other.name || "Explorer" },
-        participantPhotos: { [user.uid]: profile?.photoURL || user.photoURL || "", [other.uid]: other.photo || "" },
-        lastMessage: "",
-        lastAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-      });
+      // Participants are stored sorted (the rules bind the thread id to them), and
+      // names/photos are left empty — the server fills them from real profiles so
+      // nobody can open a conversation posing as someone else.
+      try {
+        await setDoc(ref, {
+          participants: [user.uid, other.uid].sort(),
+          participantNames: {},
+          participantPhotos: {},
+          lastMessage: "",
+          lastAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        });
+      } catch (e) {
+        if (e.code === "permission-denied") {
+          throw new Error(`${other.name || "This person"} only accepts messages from certain people right now.`, { cause: e });
+        }
+        throw e;
+      }
     }
     return tid;
   };

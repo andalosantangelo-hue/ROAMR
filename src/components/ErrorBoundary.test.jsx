@@ -15,4 +15,10 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
     expect(screen.getByText(/reload roamr/i)).toBeInTheDocument();
   });
+  it("a scoped boundary hides only the broken card; siblings still render", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<div><ErrorBoundary fallback={null}><Boom /></ErrorBoundary><p>other card</p></div>);
+    expect(screen.getByText("other card")).toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+  });
 });

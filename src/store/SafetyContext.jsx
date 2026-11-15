@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  collection, doc, addDoc, setDoc, deleteDoc, updateDoc, onSnapshot,
+  collection, doc, addDoc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot,
   query, where, orderBy, limit, serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -52,7 +52,7 @@ export function SafetyProvider({ children }) {
     if (!user || targetUid === user.uid) return;
     await setDoc(doc(db, "users", targetUid, "references", user.uid), {
       fromUid: user.uid,
-      fromName: profile?.displayName || user.displayName || "An explorer",
+      fromName: (profile?.displayName || user.displayName || "An explorer").slice(0, 40),
       fromPhoto: profile?.photoURL || user.photoURL || "",
       text: (text || "").trim().slice(0, 600),
       createdAt: serverTimestamp(),
@@ -64,9 +64,13 @@ export function SafetyProvider({ children }) {
   // ---- Reviews ----
   const leaveReview = async (targetUid, ratings, text, tripId = null) => {
     if (!user || targetUid === user.uid) return;
-    await setDoc(doc(db, "users", targetUid, "reviews", user.uid), {
+    const rref = doc(db, "users", targetUid, "reviews", user.uid);
+    // One review per person: a second submit used to fail silently (ratings are
+    // immutable once posted, so the rules reject the overwrite).
+    if ((await getDoc(rref)).exists()) throw new Error("You've already reviewed this person.");
+    await setDoc(rref, {
       reviewerId: user.uid,
-      reviewerName: profile?.displayName || user.displayName || "An explorer",
+      reviewerName: (profile?.displayName || user.displayName || "An explorer").slice(0, 40),
       reviewerPhoto: profile?.photoURL || user.photoURL || "",
       ratings, overall: overallOf(ratings),
       text: (text || "").trim().slice(0, 1000),
@@ -80,13 +84,14 @@ export function SafetyProvider({ children }) {
     if (!user) return null;
     const docRef = await addDoc(collection(db, "tripPlans"), {
       ownerId: user.uid,
-      ownerName: profile?.displayName || user.displayName || "Explorer",
+      ownerName: (profile?.displayName || user.displayName || "Explorer").slice(0, 40),
       objective: (plan.objective || "").trim(),
       activity: plan.activity || "",
       area: (plan.area || "").trim(),
       startAt: plan.startAt || null,
       expectedReturnAt: plan.expectedReturnAt || null,
       partners: plan.partners || [],
+      partnerNames: plan.partnerNames || [],
       emergencyContact: plan.emergencyContact || null,
       shareMedical: !!plan.shareMedical,
       medical: plan.shareMedical ? (plan.medical || null) : null,

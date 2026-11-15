@@ -1,4 +1,5 @@
 import { Heart, Comment, Send, Bookmark } from "./Icons.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import CardMenu from "./CardMenu.jsx";
 import JoinButton from "./JoinButton.jsx";
 import { useActivities } from "../store/ActivitiesContext.jsx";
@@ -23,14 +24,14 @@ const fmtWhen = (w) => {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 };
 
-export default function ActivityCard({ item }) {
+function ActivityCardInner({ item }) {
   const nav = useNavigate();
   const { joinedIds, likedIds, toggleAttend, toggleLike } = useActivities();
-  const { savedIds, toggleSave } = usePosts();
+  const { isSaved, toggleSave } = usePosts();
 
   const joined = joinedIds.has(item.id);
   const liked = likedIds.has(item.id);
-  const saved = savedIds.has(item.id);
+  const saved = isSaved(item, "activities");
   const goAuthor = () => item.authorId && nav(`/u/${item.authorId}`);
 
   const name = item.user || item.authorName || "Explorer";
@@ -103,4 +104,9 @@ export default function ActivityCard({ item }) {
       </div>
     </article>
   );
+}
+
+// Isolates render errors to this card (see ErrorBoundary).
+export default function ActivityCard(props) {
+  return <ErrorBoundary fallback={null}><ActivityCardInner {...props} /></ErrorBoundary>;
 }

@@ -7,10 +7,11 @@ import { useMessages } from "../store/MessagesContext.jsx";
 import { useSafety } from "../store/SafetyContext.jsx";
 import * as P from "../lib/profile.js";
 import { trustLabel, VERIFY_TIERS } from "../lib/safety.js";
+import { guideBadge } from "../lib/guide.js";
 import StatusBar from "../components/StatusBar.jsx";
 import PostCard from "../components/PostCard.jsx";
 import FollowButton from "../components/FollowButton.jsx";
-import { PostSkeleton } from "../components/Skeleton.jsx";
+import { SkeletonRegion, PostCardSkeleton, ProfileHeaderSkeleton } from "../components/skeletons";
 import { Profile as UserIcon, Comment, Edit, Check, Star } from "../components/Icons.jsx";
 
 const ACT = Object.fromEntries(P.ACTIVITIES.map((a) => [a.id, a.label]));
@@ -51,6 +52,7 @@ export default function PublicProfile() {
   const [refs, setRefs] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [opening, setOpening] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [vouchOpen, setVouchOpen] = useState(false);
   const [vouchText, setVouchText] = useState("");
   const isMe = user && user.uid === uid;
@@ -84,13 +86,47 @@ export default function PublicProfile() {
 
   const message = async () => {
     if (opening) return;
-    setOpening(true);
+    setOpening(true); setActionError("");
     try { const tid = await openThread({ uid, name, photo: photos[0] || "" }); if (tid) nav(`/chat/${tid}`); }
-    catch (e) { console.warn("openThread:", e.message); } finally { setOpening(false); }
+    catch (e) { setActionError(e.message || "Couldn't open a conversation. Try again."); }
+    finally { setOpening(false); }
   };
   const submitVouch = async () => {
-    try { await vouchFor(uid, vouchText); setVouchOpen(false); setVouchText(""); } catch (e) { console.warn(e.message); }
+    setActionError("");
+    try { await vouchFor(uid, vouchText); setVouchOpen(false); setVouchText(""); }
+    catch { setActionError("Couldn't post your vouch. Check your connection and try again."); }
   };
+
+  if (!loadingP && !p) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <StatusBar />
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
+          <h1 className="text-lg font-semibold text-brand-navy">Profile</h1>
+        </div>
+        <div className="flex-1 grid place-items-center px-8 text-center">
+          <div>
+            <p className="font-semibold text-brand-navy">This profile isn't available</p>
+            <p className="text-sm text-muted mt-1">The account may have been deleted.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingP) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <StatusBar />
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button onClick={() => nav(-1)} aria-label="Back" className="text-brand-navy text-2xl leading-none">‹</button>
+          <h1 className="text-lg font-semibold text-brand-navy">Profile</h1>
+        </div>
+        <SkeletonRegion label="Loading profile" className="flex-1 overflow-hidden"><ProfileHeaderSkeleton /></SkeletonRegion>
+      </div>
+    );
+  }
 
   const stream = [];
   const maxLen = Math.max(prompts.length, extraPhotos.length);
@@ -128,12 +164,14 @@ export default function PublicProfile() {
           {/* Trust strip */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] mb-3">
             {p?.verified && <span className="inline-flex items-center gap-1 text-brand-green font-semibold"><Check className="w-4 h-4" />{VERIFY_TIERS[p.verifiedTier] || "Verified"}</span>}
+            {guideBadge(p) && <span className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white px-2.5 py-0.5 font-semibold"><Star className="w-3.5 h-3.5 text-brand-greenBright" />{guideBadge(p)}</span>}
             {(p?.adventuresCompleted > 0) && <span className="text-ink/80 font-medium">✓ {p.adventuresCompleted} adventures</span>}
             <span className="inline-flex items-center gap-1 text-ink/80 font-medium"><Star className="w-4 h-4 text-brand-green" />{trust.isNew ? "New partner" : trust.text}</span>
             {(p?.vouchCount > 0) && <span className="text-ink/80 font-medium">👍 {p.vouchCount} vouches</span>}
           </div>
 
-          <div className="flex items-center justify-between">
+          {/* Wraps on narrow phones: counts + Follow + Message didn't fit at 320–390px and pushed the page sideways. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-6">
               <div><span className="font-bold text-brand-navy">{p?.followerCount ?? 0}</span> <span className="text-muted text-sm">followers</span></div>
               <div><span className="font-bold text-brand-navy">{p?.followingCount ?? 0}</span> <span className="text-muted text-sm">following</span></div>
@@ -145,7 +183,7 @@ export default function PublicProfile() {
             ) : (
               <div className="flex items-center gap-2">
                 <FollowButton targetUid={uid} variant="pill" />
-                <button onClick={message} disabled={opening} className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5 active:scale-[0.98] transition"><Comment className="w-4 h-4" /> Message</button>
+                <button onClick={message} disabled={opening} className="rounded-full px-5 py-2 text-sm font-semibold bg-brand-tint text-brand-navy flex items-center gap-1.5 active:scale-[0.98] transition"><Comment className="w-4 h-4" /> {opening ? "Opening…" : "Message"}</button>
               </div>
             )}
           </div>
@@ -160,6 +198,7 @@ export default function PublicProfile() {
               <button onClick={() => nav(`/review/${uid}`)} className="flex-1 rounded-xl py-2.5 text-sm font-semibold bg-brand-tint text-brand-navy">★ Review</button>
             </div>
           )}
+          {actionError && <p role="alert" className="text-red-600 text-sm mt-2">{actionError}</p>}
           {vouchOpen && (
             <div className="mt-2 rounded-xl border border-black/10 p-3">
               <textarea value={vouchText} onChange={(e) => setVouchText(e.target.value)} rows={2} maxLength={600} placeholder={`Why do you vouch for ${name}?`}
@@ -303,7 +342,7 @@ export default function PublicProfile() {
 
         <div className="px-4 py-5 mt-3 space-y-4 border-t border-black/5">
           <Heading>{isMe ? "My posts" : "Posts"}</Heading>
-          {loadingPosts ? [0, 1].map((i) => <PostSkeleton key={i} />)
+          {loadingPosts ? <SkeletonRegion label="Loading posts" className="space-y-4">{[0, 1].map((i) => <PostCardSkeleton key={i} />)}</SkeletonRegion>
             : posts.length === 0 ? <p className="text-center text-muted text-sm mt-2">{isMe ? "You haven't posted yet." : "No posts yet."}</p>
               : posts.map((post) => <PostCard key={post.id} post={post} />)}
         </div>

@@ -21,16 +21,19 @@ export default function EmergencyInfo() {
   const [notes, setNotes] = useState(med.notes || "");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   const save = async () => {
-    setBusy(true);
+    if (phone.trim() && !/^\+?[0-9 ()\-.]{7,20}$/.test(phone.trim())) { setError("Enter a valid phone number."); return; }
+    setBusy(true); setError("");
     try {
       await savePrivate({
         emergencyContact: { name: name.trim(), phone: phone.trim(), relation: relation.trim() },
         medical: { bloodType, allergies: allergies.trim(), conditions: conditions.trim(), notes: notes.trim() },
       });
       setSaved(true); setTimeout(() => nav(-1), 600);
-    } finally { setBusy(false); }
+    } catch { setError("Your emergency info couldn't be saved. Please try again."); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -64,6 +67,7 @@ export default function EmergencyInfo() {
         <div className="h-4" />
       </div>
       <div className="px-6 pb-7 pt-3 border-t border-black/5">
+        {error && <p role="alert" className="text-red-600 text-sm mb-3">{error}</p>}
         <button disabled={busy} onClick={save} className="w-full rounded-xl bg-brand-green hover:bg-brand-greenDark text-white font-semibold py-4 disabled:opacity-60">
           {saved ? "Saved ✓" : busy ? "Saving…" : "Save"}
         </button>

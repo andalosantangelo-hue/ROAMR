@@ -19,11 +19,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # matches functions/package.json engines + CI
           cache: npm
       - run: npm ci
       - run: npm ci
         working-directory: functions
+
+      # Fail early with a readable message if the secret isn't the raw key JSON (run #2 failed
+      # on a pasted non-JSON value). Never prints the secret.
+      - name: Check FIREBASE_SERVICE_ACCOUNT secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          node -e '
+            let k; try { k = JSON.parse(process.env.SA || ""); } catch { k = null; }
+            if (!k || k.type !== "service_account" || !k.private_key || !k.client_email) {
+              console.error("::error::FIREBASE_SERVICE_ACCOUNT is not a service-account key JSON. Firebase console → Project settings → Service accounts → Generate new private key, open the downloaded .json in a text editor, and paste its whole contents (starting with {) as the secret.");
+              process.exit(1);
+            }
+            if (k.project_id !== "roamr-55afb") console.log("::warning::Key is for project " + k.project_id + ", not roamr-55afb.");
+          '
 
       # Service-account key JSON from Firebase console → Project settings → Service accounts.
       - uses: google-github-actions/auth@v2
@@ -34,6 +49,18 @@ jobs:
       - name: Deploy rules, indexes, storage, functions
         if: inputs.target != 'hosting'
         run: npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project roamr-55afb --non-interactive
+
+      # `firebase deploy` can't set TTL policies. Without them the idempotency claims
+      # (processedEvents) and notification dedupe docs (notifDedupe) are never cleaned up —
+      # nothing breaks, they just grow. Needs the service account to have
+      # roles/datastore.owner (or indexAdmin); if it doesn't, run these once by hand.
+      - name: Firestore TTL policies
+        if: inputs.target != 'hosting'
+        continue-on-error: true
+        run: |
+          for cg in processedEvents notifDedupe; do
+            gcloud firestore fields ttls update expireAt --collection-group="$cg" --enable-ttl --project=roamr-55afb --async --quiet
+          done
 
       - name: Build web app
         if: inputs.target != 'backend'

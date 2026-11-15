@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SearchBar from "./SearchBar.jsx";
-import { GridSkeleton } from "./Skeleton.jsx";
+import { SkeletonRegion, ListingCardSkeleton } from "./skeletons";
 import {
   CATEGORIES, loadCatalog, findVariant, checkoutUrl, openExternal, money, loadBag, saveBag, SHOP_URL,
 } from "../lib/shop.js";
@@ -208,7 +208,7 @@ export default function ApparelShop() {
       </div>
 
       {!data ? (
-        <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <GridSkeleton key={i} />)}</div>
+        <SkeletonRegion label="Loading apparel" className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <ListingCardSkeleton key={i} />)}</SkeletonRegion>
       ) : shown.length === 0 ? (
         <p className="text-center text-muted text-sm mt-10">No gear matches that. <button onClick={() => { setQ(""); setCat("all"); }} className="text-brand-green font-semibold">Clear</button></p>
       ) : (

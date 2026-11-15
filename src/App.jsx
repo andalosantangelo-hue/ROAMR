@@ -37,6 +37,8 @@ import TripPlanForm from "./screens/TripPlanForm.jsx";
 import TripPlans from "./screens/TripPlans.jsx";
 import LeaveReview from "./screens/LeaveReview.jsx";
 import Legal from "./screens/Legal.jsx";
+import Welcome from "./screens/Welcome.jsx";
+import GuideApply from "./screens/GuideApply.jsx";
 import { TribesProvider } from "./store/TribesContext.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { PostsProvider } from "./store/PostsContext.jsx";
@@ -57,13 +59,17 @@ export default function App() {
     <ListingsProvider>
     <MessagesProvider>
     <SafetyProvider>
+    <Routes>
+      {/* Public marketing page: full-width, so it sits outside the phone canvas. */}
+      <Route path="/welcome" element={<Welcome />} />
+      <Route path="*" element={
     <PhoneFrame>
       <OfflineBanner />
       <ConsentBanner />
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
         <Route path="/legal/:doc" element={<Legal />} />
         <Route path="/app" element={<RequireAuth><TabsLayout /></RequireAuth>}>
           <Route index element={<Navigate to="home" replace />} />
@@ -91,6 +97,7 @@ export default function App() {
         <Route path="/chat/:threadId" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/safety" element={<RequireAuth><SafetyCenter /></RequireAuth>} />
         <Route path="/safety/verify" element={<RequireAuth><Verify /></RequireAuth>} />
+        <Route path="/guide/apply" element={<RequireAuth><GuideApply /></RequireAuth>} />
         <Route path="/safety/emergency" element={<RequireAuth><EmergencyInfo /></RequireAuth>} />
         <Route path="/safety/controls" element={<RequireAuth><SafetyControls /></RequireAuth>} />
         <Route path="/safety/waiver" element={<RequireAuth><Waiver /></RequireAuth>} />
@@ -103,6 +110,8 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PhoneFrame>
+      } />
+    </Routes>
     </SafetyProvider>
     </MessagesProvider>
     </ListingsProvider>
