@@ -11,7 +11,9 @@
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
 import { chromium } from "playwright";
-import admin from "firebase-admin";
+import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -19,8 +21,8 @@ const BASE = process.env.E2E_BASE || "http://127.0.0.1:5173";
 const N = +process.argv[2] || 100, CONC = +process.argv[3] || 8;
 const DIR = import.meta.dirname, OUT = path.join(DIR, ".results"), AVATARS = path.join(DIR, ".avatars");
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
-admin.initializeApp({ projectId: "demo-roamr" });
-const db = admin.firestore();
+initializeApp({ projectId: "demo-roamr" });
+const db = getFirestore();
 
 // ---------- personas ----------
 const FIRST = ["Maya","Liam","Ava","Noah","Zara","Kai","Sofia","Mateo","Priya","Ethan","Lena","Omar","Hana","Jonas","Isla","Diego","Nia","Felix","Aria","Tomas","Leila","Owen","Yuki","Rafael","Elif","Caleb","Amara","Finn","Mei","Andre"];
@@ -123,7 +125,7 @@ async function phase1(browser, u) {
       await page.locator('input[type="date"]').fill(`19${70 + (u.i % 30)}-0${1 + (u.i % 9)}-15`);
       await page.getByRole("button", { name: "Create Account", exact: true }).click();
       await page.waitForURL(/\/onboarding/);
-      u.uid = (await admin.auth().getUserByEmail(u.email)).uid;
+      u.uid = (await getAuth().getUserByEmail(u.email)).uid;
     })) return;
     await step(u, page, "onboarding", async () => {
       await page.locator("#displayName").fill(u.name);
@@ -435,7 +437,7 @@ async function audit() {
     const left = [];
     if ((await db.doc(`users/${u.uid}`).get()).exists) left.push("users doc");
     for (const c of ["posts", "activities", "listings", "tribes"]) { const n = (await db.collection(c).where(c === "tribes" ? "ownerId" : "authorId", "==", u.uid).get().catch(() => ({ size: 0 }))).size; if (n) left.push(`${n} ${c}`); }
-    const auth = await admin.auth().getUser(u.uid).then(() => true).catch(() => false);
+    const auth = await getAuth().getUser(u.uid).then(() => true).catch(() => false);
     if (auth) left.push("Auth account still exists");
     A.deletion.push(`u${u.i}: ${left.length ? "LEFT BEHIND → " + left.join(", ") : "fully removed"}`);
   }
