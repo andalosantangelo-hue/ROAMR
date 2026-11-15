@@ -21,6 +21,7 @@ npm run build        # must succeed; CI gate
 firebase deploy --only firestore:rules,firestore:indexes   # after rules/schema changes
 firebase deploy --only hosting                              # public site
 ```
+
 CI (`.github/workflows/ci.yml`): lint → test → coverage gate (util.js, ErrorBoundary) →
 build → audit, plus gitleaks.
 

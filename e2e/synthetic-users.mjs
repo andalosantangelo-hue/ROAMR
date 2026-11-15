@@ -76,7 +76,7 @@ async function signIn(page, u) {
   await page.getByPlaceholder("Email").waitFor();
   await page.getByPlaceholder("Email").fill(u.email);
   await page.getByPlaceholder("Password").fill(u.pw);
-  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await page.getByRole("button", { name: "Log in", exact: true }).click();
   await page.waitForURL(/\/app\/home|\/onboarding/);
   // WORKAROUND=1 restores the reload used against the old code (stale feed listeners).
   if (process.env.WORKAROUND) { await page.reload(); await page.waitForTimeout(1500); }
@@ -116,14 +116,18 @@ async function phase1(browser, u) {
   const { ctx, page } = await newSession(browser, u);
   try {
     if (!await step(u, page, "signup", async () => {
-      await page.goto(`${BASE}/login`);
-      await page.getByRole("button", { name: /Create Account/ }).first().click();
+      await page.goto(`${BASE}/login?mode=signup`);
       await page.getByPlaceholder("Email").fill(u.email);
       await page.getByPlaceholder("Password").fill(u.pw);
-      await page.locator('input[type="date"]').fill(`19${70 + (u.i % 30)}-0${1 + (u.i % 9)}-15`);
-      await page.getByRole("button", { name: "Create Account", exact: true }).click();
+      await page.getByRole("button", { name: "Create account", exact: true }).click();
       await page.waitForURL(/\/onboarding/);
       u.uid = (await admin.auth().getUserByEmail(u.email)).uid;
+    })) return;
+    // 18+ gate (onboarding step 0): every sign-in method lands here first.
+    if (!await step(u, page, "age_gate", async () => {
+      await page.locator("#dob").fill(`19${70 + (u.i % 30)}-0${1 + (u.i % 9)}-15`);
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.locator("#displayName").waitFor({ timeout: 15000 });
     })) return;
     await step(u, page, "onboarding", async () => {
       await page.locator("#displayName").fill(u.name);
@@ -426,6 +430,11 @@ async function audit() {
     if (!d.photoURL && u.steps.find((s) => s.name === "edit_profile_photo_bio" && s.ok)) A.profile.push(`u${u.i}: profile saved OK but photoURL empty (file ${path.basename(u.avatar)})`);
     if (!d.bio && u.steps.find((s) => s.name === "edit_profile_photo_bio" && s.ok)) A.profile.push(`u${u.i}: bio missing after save`);
     if (!(d.interests || []).length) A.profile.push(`u${u.i}: interests empty after onboarding`);
+    // 18+ gate: only a yes/no flag, in the owner-only private doc; never the birth date anywhere.
+    const priv = (await db.doc(`users/${u.uid}/private/data`).get()).data() || {};
+    if (priv.ageConfirmed !== true) A.profile.push(`u${u.i}: passed the age step but ageConfirmed is ${priv.ageConfirmed}`);
+    const leaked = Object.keys({ ...d, ...priv }).filter((k) => /dob|birth/i.test(k));
+    if (leaked.length) A.profile.push(`u${u.i}: birth date stored (${leaked.join(", ")})`);
   }
   for (const p of (await db.collection("activities").get()).docs) {
     const x = p.data();

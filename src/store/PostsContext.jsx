@@ -20,6 +20,9 @@ export function PostsProvider({ children }) {
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setLoading(true); setError(null); setAttempt((n) => n + 1); };
   const pending = useRef(new Set()); // ids with a like/save write in flight (ignores double taps)
 
   // Re-subscribes whenever the signed-in user changes. Subscribing once at app start
@@ -33,10 +36,10 @@ export function PostsProvider({ children }) {
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20));
     return onSnapshot(
       q,
-      (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
-      (err) => { console.warn("Firestore posts:", err.message); setLoading(false); }
+      (snap) => { setRemote(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setError(null); setLoading(false); },
+      (err) => { console.warn("Firestore posts:", err.message); setError(err); setLoading(false); }
     );
-  }, [uid]);
+  }, [uid, attempt]);
 
   useEffect(() => {
     if (!uid) { setLikedIds(new Set()); setSavedIds(new Set()); return; }
@@ -128,7 +131,7 @@ export function PostsProvider({ children }) {
     savedIds.has(collectionName === "posts" ? item.id : `${collectionName}_${item.id}`);
 
   return (
-    <PostsContext.Provider value={{ posts, loading, likedIds, savedIds, isSaved, addPost, toggleLike, toggleSave }}>
+    <PostsContext.Provider value={{ posts, loading, error, retry, likedIds, savedIds, isSaved, addPost, toggleLike, toggleSave }}>
       {children}
     </PostsContext.Provider>
   );

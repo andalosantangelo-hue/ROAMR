@@ -86,12 +86,21 @@ export function AuthProvider({ children }) {
   // follower counts) without a reload, and the doc created during sign-up.
   useEffect(() => {
     if (!user) return;
-    let priv = {}, pub = null;
-    const merge = () => setProfile({ ...(pub || {}), ...priv });
-    getDoc(privDoc(user.uid)).then((s) => { priv = s.exists() ? s.data() : {}; if (pub) merge(); }).catch(() => {});
-    return onSnapshot(doc(db, "users", user.uid),
-      (s) => { pub = s.exists() ? s.data() : {}; merge(); setProfileStatus("ready"); },
+    // "ready" only once BOTH halves have arrived. Route guards read profile.ageConfirmed,
+    // which lives in the owner-only private doc: marking ready on the public doc alone
+    // would bounce returning users to the age step. Both are live, so a public update
+    // can't rebuild the profile from a stale private copy and drop ageConfirmed.
+    let priv = null, pub = null;
+    const merge = () => { if (pub && priv) { setProfile({ ...pub, ...priv }); setProfileStatus("ready"); } };
+    // If the private half can't be read, treat it as empty: the user is sent to the age
+    // step again rather than let through unconfirmed (an age gate should fail closed).
+    const offPriv = onSnapshot(privDoc(user.uid),
+      (s) => { priv = s.exists() ? s.data() : {}; merge(); },
+      (e) => { console.warn("profile (private):", e.message); priv = {}; merge(); });
+    const offPub = onSnapshot(doc(db, "users", user.uid),
+      (s) => { pub = s.exists() ? s.data() : {}; merge(); },
       (e) => { console.warn("profile:", e.message); setProfileStatus("error"); });
+    return () => { offPriv(); offPub(); };
   }, [user]);
 
   useEffect(() => {

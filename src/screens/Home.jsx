@@ -15,7 +15,7 @@ const EMPTY = {
 };
 
 export default function Home() {
-  const { posts, loading } = usePosts();
+  const { posts, loading, error, retry } = usePosts();
   const { user, profile, followingIds } = useAuth();
   const { scope, setScope } = useFeedScope();
 
@@ -38,6 +38,14 @@ export default function Home() {
         <SkeletonRegion label="Loading posts" className="space-y-4">
           {[0, 1, 2].map((i) => <PostCardSkeleton key={i} />)}
         </SkeletonRegion>
+      ) : error && visible.length === 0 ? (
+        <div role="alert" className="mt-6 rounded-2xl bg-white border border-black/5 shadow-card p-5 text-center">
+          <p className="font-semibold text-brand-navy text-lg mb-1">Couldn&apos;t load your feed</p>
+          <p className="text-sm text-muted mb-4">Check your connection and try again.</p>
+          <button onClick={retry} className="rounded-xl bg-brand-green hover:bg-brand-greenDark text-white font-semibold px-6 py-3 transition">
+            Try again
+          </button>
+        </div>
       ) : visible.length === 0 ? (
         <div className="pt-6">
           <EmptyState Icon={empty.Icon} title={empty.title} body={empty.body} actions={emptyActions} className="mb-6" />
