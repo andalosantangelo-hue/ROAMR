@@ -33,6 +33,19 @@ build → audit, plus gitleaks.
 - `functions/index.js` — server-authoritative counters, rate limits, notifications, overdue-trip cron.
 - `firestore.rules`, `storage.rules`, `firestore.indexes.json` — security boundary.
 
+## Working agreement (owners' rules — follow every session)
+1. Explore → Plan → wait for owner OK → code. Plan anything that changes code,
+   data, settings or GitHub. Read-only questions: answer directly.
+2. Write the failing test first, then the fix; commit at each green step.
+3. "Done" means `/prove` passed: lint · unit · rules (try to break it: other users'
+   data, oversized fields, client-written counters) · build · 100-user e2e on
+   emulators · screenshots of changed screens · report of what passed, failed,
+   and was not tested.
+4. Claude may merge a PR once (a) the owner approved its plan, (b) CI is green, and
+   (c) `/prove` passed — and tells the owner after every merge in one line. Claude never
+   deploys, and asks first before merging anything that touches production Cloud
+   Functions (`functions/`) or security rules (`firestore.rules`, `storage.rules`).
+
 ## Rules of the road
 - **Any new field or collection needs `firestore.rules` updated** (rules use `keysOnly()` whitelists + `strMax()`) or client writes are rejected. Add a case to `test/rules.test.js`.
 - Counters (likes, members, ratings) are written only by Cloud Functions — never from the client.
