@@ -1,4 +1,6 @@
 version: 2
+# Patch/minor bumps arrive as one grouped PR per directory each week; majors stay separate
+# so each gets its own review. Security updates are not grouped.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
@@ -6,14 +8,24 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      dev-dependencies:
-        dependency-type: "development"
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Tailwind 4 replaces tailwind.config.js (design tokens) — a planned migration, not a bump.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/functions"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
