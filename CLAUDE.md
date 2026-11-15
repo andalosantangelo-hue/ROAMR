@@ -40,7 +40,10 @@ build → audit, plus gitleaks.
    data, oversized fields, client-written counters) · build · 100-user e2e on
    emulators · screenshots of changed screens · report of what passed, failed,
    and was not tested.
-4. Never merge or deploy. Owners click merge.
+4. Claude may merge a PR once (a) the owner approved its plan, (b) CI is green, and
+   (c) `/prove` passed — and tells the owner after every merge in one line. Claude never
+   deploys, and asks first before merging anything that touches production Cloud
+   Functions (`functions/`) or security rules (`firestore.rules`, `storage.rules`).
 
 ## Rules of the road
 - **Any new field or collection needs `firestore.rules` updated** (rules use `keysOnly()` whitelists + `strMax()`) or client writes are rejected. Add a case to `test/rules.test.js`.
